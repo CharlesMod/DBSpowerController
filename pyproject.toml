@@ -1,0 +1,24 @@
+[project]
+name = "dbs-power-controller"
+version = "1.0.0"
+description = "Autonomous solar AC scheduler for Dabbsson DBS power stations"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "tinytuya>=1.16",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pyyaml>=6.0",
+    "anyio>=4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["dbs_controller"]
+py-modules = ["server", "dps_map", "probe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

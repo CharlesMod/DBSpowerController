@@ -1,0 +1,24 @@
+# Install as a USER service (no root needed; enable linger so it survives reboot):
+#   cp systemd/DBSpowerController.service ~/.config/systemd/user/
+#   loginctl enable-linger "$USER"
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now DBSpowerController
+#   journalctl --user -u DBSpowerController -f
+#
+# Assumes the repo is checked out at ~/DBSpowerController with a venv at .venv/.
+
+[Unit]
+Description=DBSpowerController — Dabbsson solar AC scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/DBSpowerController
+Environment=PORT=8787
+ExecStart=%h/DBSpowerController/.venv/bin/python %h/DBSpowerController/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "DBS unit A",
+    "id": "REPLACE_WITH_DEVICE_ID",
+    "key": "REPLACE_WITH_LOCAL_KEY",
+    "version": "3.5",
+    "ip": "192.168.1.50",
+    "model": "DBS1400Pro"
+  },
+  {
+    "name": "DBS unit B",
+    "id": "REPLACE_WITH_DEVICE_ID",
+    "key": "REPLACE_WITH_LOCAL_KEY",
+    "version": "3.5",
+    "ip": "192.168.1.51",
+    "model": "DBS1400Pro"
+  }
+]

@@ -1,0 +1,45 @@
+# DBSpowerController tunables — hot-reloaded within ~5 s, no restart needed.
+#
+# Phase 1 model: cars are fixed ~1200 W sinks. The only control lever is each
+# DBS unit's AC inverter (dp109) on/off. Tesla amperage control = future Phase 2.
+
+# ── master safety gate ───────────────────────────────────────────────
+dry_run: true           # true: log decisions without switching AC.
+                        # set false once you've watched it behave.
+
+# ── polling ──────────────────────────────────────────────────────────
+poll_interval_s: 10            # Tuya status poll cadence
+coordinator_tick_s: 15         # coordinator decision cadence
+state_stale_s: 60              # a unit with no fresh data past this is OFFLINE
+
+# ── SoC floor (the core constraint) ──────────────────────────────────
+soc_floor_pct: 33              # unit drops off the bus at/below this
+soc_hard_floor_pct: 30         # backstop, below the soft floor
+soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this
+
+# ── car-count inference ──────────────────────────────────────────────
+car_sink_w: 1200               # assumed per-car fixed draw
+min_ac_dwell_s: 300            # min gap before turning a unit's AC back on
+ac_confirm_timeout_s: 90       # re-issue an AC command if unconfirmed this long
+
+# ── charge balancing (one-car case: duty-cycle the weaker unit) ──────
+divergence_trigger_pct: 15     # enter REBALANCING above this SoC gap
+divergence_persist_min: 10
+divergence_clear_pct: 5        # exit REBALANCING below this gap
+divergence_clear_persist_min: 5
+floor_proximity_pct: 5         # urgent rebalance if weak unit this close to floor
+weak_recovered_pct: 85         # secondary exit: weak unit charged near-full
+rebalance_min_dwell_min: 20    # min time between balance-state changes
+rebalance_max_duration_min: 90 # safety cap on a single rebalance
+
+# ── manual override (dashboard Force ON/OFF) ─────────────────────────
+override_default_ttl_h: 48
+override_max_ttl_h: 168
+
+# ── NREL PVWatts (optional diagnostic — never feeds control) ─────────
+# nrel_api_key:                  # free key from https://developer.nrel.gov/signup/
+# pvwatts_zip: "00000"           # your site ZIP code
+pvwatts_arrays: []
+# pvwatts_arrays:
+#   - {unit_id: "<your-unit-A-id>", array_type: 2, system_capacity_kw: 1.44}
+#   - {unit_id: "<your-unit-B-id>", array_type: 4, system_capacity_kw: 1.44}
