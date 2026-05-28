@@ -1283,9 +1283,27 @@ function setupDebug() {
   }
 }
 
+/* ── keep the tablet screen awake (Screen Wake Lock API) ─────────
+   Holds the screen on while this page is visible. The lock drops when
+   the page is backgrounded/hidden, so re-acquire on visibility change. */
+let wakeLock = null;
+async function acquireWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch (e) {
+    /* request can reject if not visible or blocked by power policy */
+  }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !wakeLock) acquireWakeLock();
+});
+
 spawnParticles();
 setupDebug();
 startPolling();
+acquireWakeLock();
 </script>
 </body>
 </html>
