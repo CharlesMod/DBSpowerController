@@ -1,18 +1,12 @@
 .venv/
 __pycache__/
 *.pyc
-.pytest_cache/
-
-# local config — contains device IDs, local keys, IPs
 devices.json
-tinytuya.json
-
-# runtime artifacts
 decisions.jsonl
-pvwatts_cache.json
+telemetry.csv
 snapshot.json
-
-# Tesla (Phase 2) secrets
+tinytuya.json
+pvwatts_cache.json
 tesla_private_key.pem
 tesla_public_key.pem
 .tesla-cache.json

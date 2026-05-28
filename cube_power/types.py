@@ -1,4 +1,4 @@
-"""Pure data types for DBSpowerController. No logic, no I/O."""
+"""Pure data types for cube-power. No logic, no I/O."""
 
 from __future__ import annotations
 
@@ -56,26 +56,45 @@ class TeslaState:
     actual_amps: int | None = None      # charger_actual_current — what's really flowing
     charger_voltage: int | None = None
     car_soc_pct: float | None = None    # battery_level
+    minutes_to_full: int | None = None  # from Tesla protocol charge_state.minutes_to_full_charge
     updated_at: float = 0.0
     last_error: str | None = None
+
+
+@dataclass
+class GroupSnapshot:
+    """Per bus-group view: which car, plug state, balance state, units feeding it."""
+
+    group_id: str
+    vin: str | None = None
+    car_name: str | None = None
+    plugged_in: bool | None = None
+    last_plugged_at: float | None = None    # epoch; None if never seen plugged
+    want_bus_live: bool = False             # coordinator wants inverters on
+    units: list[str] = field(default_factory=list)
+    units_on: int = 0
+    balance_state: str = BalanceState.BALANCED
+    weak_unit: str | None = None
+    charging_commanded: bool | None = None  # last Tesla on/off intent (None = no-op)
+    note: str = ""
 
 
 @dataclass
 class CoordinatorSnapshot:
     """What the coordinator decided this tick — surfaced to the dashboard.
 
-    Phase-1 model: cars are fixed ~1200 W sinks. The only control lever is each
-    DBS unit's AC inverter on/off. Tesla amperage control is deferred to Phase 2.
+    Cars are one-per-bus-group. Each group is an independent subsystem (today:
+    two DBS units feeding Tessa; later a second group will land for the Anker
+    + the other car). The aggregate fields below sum across all groups for the
+    top-line dashboard; `groups` holds per-group detail.
     """
 
     tick_at: float = field(default_factory=time.time)
-    n_cars: int = 1                 # inferred from measured bus output
-    n_cars_measured: bool = False   # True once a live reading has confirmed it
-    units_on: int = 0               # units the coordinator wants feeding the bus
+    n_cars: int = 0                 # number of plugged-in cars across all groups
+    units_on: int = 0               # units the coordinator wants feeding any bus
     total_solar_w: float = 0.0
     total_ac_out_w: float = 0.0
-    balance_state: str = BalanceState.BALANCED
-    weak_unit: str | None = None
     desired_ac: dict[str, bool] = field(default_factory=dict)  # unit_id -> AC on
     actuator_ready: bool = False    # the ac_on DP is mapped/writable
+    groups: dict[str, GroupSnapshot] = field(default_factory=dict)
     note: str = ""

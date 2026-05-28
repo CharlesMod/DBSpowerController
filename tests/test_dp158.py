@@ -1,7 +1,7 @@
 """dp158 telemetry-string parsing (the DBS1400 Pro sensor source)."""
 
-from dbs_controller.tuya_poller import parse_dp158, normalize
-from dbs_controller.unit import Unit
+from cube_power.tuya_poller import parse_dp158, normalize
+from cube_power.unit import Unit
 from dps_map import MAPS
 
 STANDBY = ("AC输入{0.00V,0.00A,0W,60HZ,使能:1}\n"

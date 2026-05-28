@@ -1,4 +1,4 @@
-// DBSpowerController dashboard
+// cube-power dashboard
 const cardsEl = document.getElementById('cards');
 const coordEl = document.getElementById('coord');
 const logEl = document.getElementById('log');

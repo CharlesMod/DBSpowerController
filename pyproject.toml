@@ -1,9 +1,7 @@
 [project]
-name = "dbs-power-controller"
-version = "1.0.0"
-description = "Autonomous solar AC scheduler for Dabbsson DBS power stations"
-readme = "README.md"
-license = { text = "MIT" }
+name = "cube-power"
+version = "0.2.0"
+description = "Solar-tracking Tesla charge controller for Dabbsson power stations"
 requires-python = ">=3.11"
 dependencies = [
     "tinytuya>=1.16",
@@ -17,7 +15,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [tool.setuptools]
-packages = ["dbs_controller"]
+packages = ["cube_power"]
 py-modules = ["server", "dps_map", "probe"]
 
 [tool.pytest.ini_options]

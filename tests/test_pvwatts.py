@@ -3,9 +3,9 @@
 from datetime import datetime
 
 from helpers import FakeConfig
-from dbs_controller.decisions import DecisionLog
-from dbs_controller.bus import Bus
-from dbs_controller.pvwatts import PvWatts
+from cube_power.decisions import DecisionLog
+from cube_power.bus import Bus
+from cube_power.pvwatts import PvWatts
 
 
 def _pv(tmp_path):

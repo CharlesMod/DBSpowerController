@@ -1,0 +1,21 @@
+# Deployed as a USER service (no sudo needed; cmod has linger enabled):
+#   cp systemd/cube-power.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now cube-power
+#   journalctl --user -u cube-power -f
+
+[Unit]
+Description=cube-power — Dabbsson solar AC scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/cmod/cube-power
+Environment=PORT=8787
+ExecStart=/home/cmod/cube-power/.venv/bin/python /home/cmod/cube-power/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

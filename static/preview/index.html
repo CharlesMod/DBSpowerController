@@ -111,7 +111,7 @@ html, body {
   grid-template-rows:
     clamp(56px, 6vh,  72px)              /* top banner */
     minmax(0, 1fr)                       /* hero        */
-    clamp(160px, 22vh, 220px);           /* bottom      */
+    clamp(120px, 16vh, 160px);           /* bottom      */
   height: 100vh; height: 100dvh;
   padding: 14px;
   gap: 14px;
@@ -142,29 +142,22 @@ html, body {
 
 /* ── TOP STRIP ───────────────────────────────────────────────── */
 .top-strip {
-  display: flex; align-items: center; gap: clamp(10px, 2vw, 28px);
-  padding: 0 clamp(14px, 1.6vw, 22px);
+  display: flex; align-items: center; gap: clamp(16px, 3vw, 40px);
+  padding: 0 clamp(18px, 2vw, 28px);
   font-variant-numeric: tabular-nums;
 }
 .top-strip .health-inline {
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: center; gap: 14px;
   font-size: clamp(11px, 1.3vh, 13px); color: var(--text-dim);
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 .top-strip .health-inline .item {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 6px;
 }
 .top-strip .health-inline .dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--ok); box-shadow: 0 0 8px var(--ok);
-  opacity: 0.55;
-}
-.top-strip .health-inline .dot.beat {
-  animation: dotbeat 0.7s ease-out 1;
-}
-@keyframes dotbeat {
-  0%   { opacity: 1;    transform: scale(1.7); filter: brightness(1.4); }
-  100% { opacity: 0.55; transform: scale(1);   filter: brightness(1); }
+  animation: heart 3s ease-in-out infinite;
 }
 .top-strip .health-inline .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
 .top-strip .health-inline .dot.bad  { background: var(--loss); box-shadow: 0 0 8px var(--loss); }
@@ -186,14 +179,13 @@ html, body {
   0%, 100% { filter: drop-shadow(0 0 8px var(--sun-glow)); }
   50%      { filter: drop-shadow(0 0 18px var(--sun-glow)); }
 }
-.top-strip .daylight {
-  white-space: nowrap;
-  color: var(--text-dim); font-size: clamp(14px, 1.7vh, 19px);
+.top-strip .time-meta {
+  display: flex; align-items: center; gap: clamp(16px, 2.4vw, 32px);
+  color: var(--text-dim); font-size: clamp(15px, 1.8vh, 20px);
 }
-.top-strip .clock { color: var(--text); font-size: clamp(18px, 2.4vh, 26px);
-                    font-weight: 400; letter-spacing: 1px;
-                    text-shadow: 0 0 16px rgba(180,240,255,0.3);
-                    white-space: nowrap; }
+.top-strip .clock { color: var(--text); font-size: clamp(20px, 2.6vh, 28px);
+                    font-weight: 400; letter-spacing: 2px;
+                    text-shadow: 0 0 16px rgba(180,240,255,0.3); }
 .top-strip .daylight strong { color: var(--text); font-weight: 500; }
 
 /* ── HERO ────────────────────────────────────────────────────── */
@@ -260,12 +252,11 @@ html, body {
   width: clamp(220px, 26vw, 380px);
   height: clamp(140px, 22vh, 220px);
 }
-.float.shape .label { margin-bottom: 4px; text-align: right; }
-.float.shape svg { width: 100%; height: calc(100% - 44px); display: block; }
+.float.shape .label { margin-bottom: 6px; text-align: right; }
+.float.shape svg { width: 100%; height: calc(100% - 24px); display: block; }
 .float.shape .legend {
-  display: flex; gap: 12px; flex-wrap: wrap;
-  justify-content: flex-end;
-  margin-bottom: 4px;
+  position: absolute; top: 0; left: 0;
+  display: flex; gap: 12px;
   font-size: clamp(9px, 1vh, 11px); color: var(--text-faint);
   letter-spacing: 1.5px; text-transform: uppercase;
 }
@@ -275,13 +266,12 @@ html, body {
   box-shadow: 0 0 4px currentColor;
 }
 
-/* Natural-language recommendation — upper-left, left-aligned */
+/* Natural-language recommendation — centered, top */
 .float.recommend {
   top: clamp(18px, 2vh, 30px);
-  left: clamp(24px, 3vw, 44px);
-  display: flex; flex-direction: column; align-items: flex-start;
-  text-align: left;
-  max-width: clamp(360px, 60vw, 900px);
+  left: 50%; transform: translateX(-50%);
+  text-align: center;
+  max-width: clamp(280px, 50vw, 720px);
   font-size: clamp(15px, 2vh, 22px);
   color: var(--text);
   text-shadow: 0 0 16px rgba(180,240,255,0.35);
@@ -290,10 +280,11 @@ html, body {
   line-height: 1.35;
 }
 .float.recommend .pill-inline {
-  display: inline-block; margin-bottom: 6px; width: fit-content;
-  font-size: clamp(9px, 1.1vh, 11px); letter-spacing: 2px; text-transform: uppercase;
+  display: inline-block; margin-right: 10px;
+  font-size: 0.55em; letter-spacing: 2px; text-transform: uppercase;
   padding: 3px 9px; border-radius: 999px;
   border: 1px solid currentColor;
+  vertical-align: middle;
   color: var(--battery);
   background: rgba(95,225,255,0.08);
   text-shadow: none;
@@ -320,8 +311,8 @@ html, body {
 .glow-sun-ray { stroke: #ffd47a; stroke-width: 3; stroke-linecap: round;
                 filter: drop-shadow(0 0 8px #ff9a3c); }
 
-.edge-solar   { stroke: #ffd47a; stroke-width: 5; stroke-linecap: round; fill: none;
-                filter: drop-shadow(0 0 8px #ff9a3c); }
+.edge-solar   { stroke: #7cffb1; stroke-width: 5; stroke-linecap: round; fill: none;
+                filter: drop-shadow(0 0 8px #5af0a8); }
 .edge-car     { stroke: #b4f0ff; stroke-width: 5; stroke-linecap: round; fill: none;
                 filter: drop-shadow(0 0 8px #4ad8e4); }
 .edge-loss    { stroke: #ff5e7a; stroke-width: 4; stroke-linecap: round; fill: none;
@@ -342,68 +333,6 @@ html, body {
 .bat-glow-ring {
   fill: none; stroke: #5fe1ff; stroke-width: 1;
   opacity: 0.25; animation: ringpulse 4s ease-in-out infinite;
-}
-
-/* ── BIOLUMINESCENT HALO (battery bank) ───────────────────────────
-   Subnautica-inspired: a soft volumetric disc, two pulsing rings
-   breathing at offset phases, a dashed inner shimmer, and two slow
-   electric arcs sweeping the perimeter. */
-.bat-halo { transform-origin: center; }
-.bat-halo-glow { filter: url(#batBlur); }
-.bat-halo-ring { fill: none; stroke: #5fe1ff; transform-origin: center; }
-.bat-halo-ring.outer {
-  stroke-width: 1.4; opacity: 0.42;
-  filter: drop-shadow(0 0 14px #2cc8ee);
-  animation: haloOuter 6.5s ease-in-out infinite;
-}
-.bat-halo-ring.mid {
-  stroke-width: 0.9; opacity: 0.22;
-  animation: haloMid 6.5s ease-in-out infinite 1.5s;
-}
-.bat-halo-ring.inner {
-  stroke-width: 0.6; opacity: 0.30;
-  stroke-dasharray: 1.5 6;
-  animation: haloShimmer 18s linear infinite;
-}
-.bat-halo-arc {
-  fill: none; stroke-width: 1.6; stroke-linecap: round;
-  /* circumference 2π·210 ≈ 1319; tiny dash + huge gap = one travelling bolt */
-  stroke-dasharray: 70 1249;
-  filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor);
-}
-.bat-halo-arc.arc-a {
-  stroke: #b4f0ff; color: #5fe1ff;
-  animation: haloArcA 7.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-}
-.bat-halo-arc.arc-b {
-  stroke: #7cffb1; color: #5af0a8;
-  stroke-dasharray: 35 1284;
-  animation: haloArcB 11s cubic-bezier(0.6, 0.05, 0.4, 1) infinite;
-}
-@keyframes haloOuter {
-  0%, 100% { opacity: 0.30; stroke-width: 1.1; }
-  50%      { opacity: 0.62; stroke-width: 1.6; }
-}
-@keyframes haloMid {
-  0%, 100% { opacity: 0.14; }
-  50%      { opacity: 0.34; }
-}
-@keyframes haloShimmer {
-  0%   { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -150; }
-}
-@keyframes haloArcA {
-  0%   { stroke-dashoffset: 0;     opacity: 0; }
-  8%   { opacity: 0.95; }
-  85%  { opacity: 0.95; }
-  100% { stroke-dashoffset: -1319; opacity: 0; }
-}
-@keyframes haloArcB {
-  0%, 18% { stroke-dashoffset: 0;     opacity: 0; }
-  28%     { opacity: 0.65; }
-  72%     { opacity: 0.65; }
-  88%     { stroke-dashoffset: -1319; opacity: 0; }
-  100%    { stroke-dashoffset: -1319; opacity: 0; }
 }
 @keyframes ringpulse {
   0%, 100% { opacity: 0.15; r: 80; } 50% { opacity: 0.5; r: 92; }
@@ -571,25 +500,18 @@ html, body {
   0%, 100% { opacity: 0.35; } 50% { opacity: 1; }
 }
 
-/* Lifetime pane — mirrors .losses structure: label / hero number / list */
 .totals .stack { display: flex; flex-direction: column;
-                 gap: clamp(1px, 0.6cqh, 4px); }
+                 gap: clamp(2px, 0.8cqh, 6px); }
 .totals .row { display: flex; justify-content: space-between;
-               align-items: center; font-variant-numeric: tabular-nums;
-               white-space: nowrap;
-               font-size: clamp(10px, 12cqh, 14px); line-height: 1.15; }
-.totals .row .k { color: var(--text-dim); }
-.totals .row .v { color: var(--text); font-weight: 400; }
-.totals .total {
-  font-size: clamp(20px, 32cqh, 44px); font-weight: 300; color: var(--battery);
-  text-shadow: 0 0 24px var(--bat-glow);
-  font-variant-numeric: tabular-nums; margin: 0;
-  line-height: 1;
+               align-items: baseline; font-variant-numeric: tabular-nums;
+               line-height: 1.15; }
+.totals .row .k { color: var(--text-dim); font-size: clamp(10px, 11cqh, 13px); }
+.totals .row .v { color: var(--text); font-size: clamp(13px, 15cqh, 19px);
+                  font-weight: 400; }
+.totals .row.hero .v {
+  font-size: clamp(18px, 24cqh, 32px); color: var(--battery);
+  text-shadow: 0 0 16px var(--bat-glow);
 }
-.totals .total .unit { font-size: clamp(11px, 13cqh, 18px);
-                       color: var(--text-dim); margin-left: 6px;
-                       text-shadow: none; }
-.totals #last-action { color: var(--text-dim); font-size: 0.9em; }
 
 .health .grid {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -655,6 +577,10 @@ html, body {
 
   <!-- ── TOP STRIP ────────────────────────────────────────── -->
   <header class="top-strip glass">
+    <div class="sun-now">
+      <span class="icon">☀</span>
+      <span><span id="sun-now-w">1,547</span><span class="unit"> W now</span></span>
+    </div>
     <div class="health-inline">
       <span class="item"><span class="dot"></span>Active</span>
       <span class="item"><span class="dot"></span>Passive</span>
@@ -662,9 +588,10 @@ html, body {
       <span class="item"><span class="dot"></span>Tessa</span>
     </div>
     <span class="spacer"></span>
-    <span class="daylight"><strong id="daylight-total">14h 40m</strong> daylight — <strong id="daylight-rem">3h 24m</strong> remaining</span>
-    <span class="spacer"></span>
-    <span class="clock" id="clock">14:36</span>
+    <div class="time-meta">
+      <span class="daylight"><strong id="daylight-rem">3h 24m</strong> daylight</span>
+      <span class="clock" id="clock">14:36</span>
+    </div>
   </header>
 
   <!-- ── HERO (single full cell with floating overlays) ──────── -->
@@ -698,7 +625,6 @@ html, body {
       <div class="label">Harvested today</div>
       <div class="bignum"><span id="kwh-today">6.1</span><span class="unit">kWh</span></div>
       <div class="sub">expected <strong id="kwh-expected">11.2</strong>
-        <span class="kwh-expected-mi">(<span id="kwh-expected-mi">31</span> mi)</span>
         · <span class="abyss-pill ok" id="track-pill"
                 style="font-size: 11px; padding: 2px 9px; letter-spacing:1.5px;
                        text-transform:uppercase; border:1px solid currentColor;
@@ -720,9 +646,9 @@ html, body {
 
         <!-- bioluminescent edges between nodes (horizontal middle band) -->
         <path id="edge-sun-bat" class="flow-edge edge-solar flowing"
-              d="M 240 310 L 390 310" />
+              d="M 240 310 Q 380 310 510 310" />
         <path id="edge-bat-car" class="flow-edge edge-car flowing"
-              d="M 810 310 L 920 310" />
+              d="M 750 310 Q 850 310 920 310" />
         <path id="edge-sun-lost" class="flow-edge edge-loss"
               d="M 200 250 Q 200 180 320 160" />
         <text id="clip-label" x="330" y="155"
@@ -732,6 +658,11 @@ html, body {
 
         <!-- ════ SUN NODE ════ -->
         <g transform="translate(200,310)">
+          <!-- soft halo behind sun -->
+          <circle r="80" fill="url(#sunHalo)" opacity="0.55"/>
+          <!-- pulsing ring -->
+          <circle r="62" class="bat-glow-ring" stroke="#ffd47a"
+                  style="animation-duration: 5s;"/>
           <!-- sun rays -->
           <g>
             <line class="glow-sun-ray" x1="0" y1="-48" x2="0" y2="-62" />
@@ -746,27 +677,14 @@ html, body {
           <!-- sun disc -->
           <circle class="glow-sun" r="34"/>
 
-          <text class="node-label" y="100" text-anchor="middle" style="fill:#ffd47a;">SOLAR IN</text>
+          <text class="node-label" y="100" text-anchor="middle">SOLAR IN</text>
           <text class="node-value" y="150" text-anchor="middle"
-                id="flow-sun-w" style="fill:#ffd47a; filter:drop-shadow(0 0 12px #ff9a3c);">1,547</text>
-          <text class="node-value-sm" y="178" text-anchor="middle" style="fill:#ffd47a;">W</text>
+                id="flow-sun-w" style="fill:#7cffb1; filter:drop-shadow(0 0 12px #5af0a8);">1,547</text>
+          <text class="node-value-sm" y="178" text-anchor="middle">W</text>
         </g>
 
         <!-- ════ BATTERY pair ════ -->
         <g transform="translate(600,310)" id="batteries">
-
-          <!-- ── BIOLUMINESCENT HALO ────────────────────────────────
-               layered: soft volumetric disc, two pulsing rings, dashed
-               inner shimmer, and two slow electric arcs tracing the
-               perimeter at different speeds and colors. -->
-          <g class="bat-halo">
-            <circle r="240" class="bat-halo-glow" fill="url(#batHalo)"/>
-            <circle r="210" class="bat-halo-ring outer"/>
-            <circle r="194" class="bat-halo-ring mid"/>
-            <circle r="178" class="bat-halo-ring inner"/>
-            <circle r="210" class="bat-halo-arc arc-a"/>
-            <circle r="210" class="bat-halo-arc arc-b"/>
-          </g>
 
           <text class="node-label" y="-160" text-anchor="middle">STORED</text>
           <text class="node-value-sm" y="-138" text-anchor="middle"
@@ -775,6 +693,7 @@ html, body {
 
           <!-- Active (left) -->
           <g transform="translate(-100, 0)">
+            <circle class="bat-glow-ring" r="86" cx="0" cy="0"/>
             <text class="bat-role" y="-118" text-anchor="middle">ACTIVE</text>
             <rect class="bat-tip"   x="-20" y="-114" width="40" height="10" rx="3"/>
             <rect class="bat-shell" x="-50" y="-104" width="100" height="200" rx="14"/>
@@ -789,6 +708,8 @@ html, body {
 
           <!-- Passive (right) -->
           <g transform="translate(100, 0)">
+            <circle class="bat-glow-ring" r="86" cx="0" cy="0"
+                    style="animation-delay: 2s;"/>
             <text class="bat-role" y="-118" text-anchor="middle">PASSIVE</text>
             <rect class="bat-tip"   x="-20" y="-114" width="40" height="10" rx="3"/>
             <rect class="bat-shell" x="-50" y="-104" width="100" height="200" rx="14"/>
@@ -840,21 +761,37 @@ html, body {
             <stop offset="0%" stop-color="#b4f0ff" stop-opacity="0.4"/>
             <stop offset="100%" stop-color="#4ad8e4" stop-opacity="0"/>
           </radialGradient>
-          <!-- bioluminescent halo around the battery bank — deep-ocean glow -->
-          <radialGradient id="batHalo">
-            <stop offset="0%"   stop-color="#5fe1ff" stop-opacity="0.00"/>
-            <stop offset="55%"  stop-color="#5fe1ff" stop-opacity="0.10"/>
-            <stop offset="80%"  stop-color="#2cc8ee" stop-opacity="0.28"/>
-            <stop offset="100%" stop-color="#0a4566" stop-opacity="0.00"/>
-          </radialGradient>
-          <filter id="batBlur" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="8"/>
-          </filter>
         </defs>
       </svg>
     </section>
 
     <!-- CURVE CHART -->
+    <section class="curve-card glass">
+      <div class="head">
+        <span class="title">Today's Shape</span>
+        <div class="curve-legend">
+          <span><span class="swatch" style="background:#7cffb1; color:#7cffb1;"></span>actual</span>
+          <span><span class="swatch" style="background:#ffd47a; color:#ffd47a;"></span>forecast</span>
+          <span><span class="swatch" style="background:#5fe1ff; color:#5fe1ff;"></span>SoC</span>
+        </div>
+      </div>
+      <svg class="curve-svg" id="curve-svg" viewBox="0 0 620 540"
+           preserveAspectRatio="none">
+        <line class="axis-line" x1="40" y1="500" x2="580" y2="500"/>
+        <line class="axis-line" x1="40" y1="20"  x2="40"  y2="500"/>
+        <g id="y-ticks"></g>
+        <g id="x-ticks"></g>
+
+        <path id="curve-soc-area" class="curve-soc-area" d=""/>
+        <path id="curve-soc-line" class="curve-soc-line" d=""/>
+        <path id="curve-forecast" class="curve-forecast" d=""/>
+        <path id="curve-actual"   class="curve-actual"   d=""/>
+
+        <line id="curve-now" class="curve-now-line" x1="0" y1="20" x2="0" y2="500"/>
+        <circle id="sun-rise" class="sun-marker" cx="0" cy="500" r="4"/>
+        <circle id="sun-set"  class="sun-marker" cx="0" cy="500" r="4"/>
+      </svg>
+    </section>
   </main>
 
   <!-- ── BOTTOM STRIP ────────────────────────────────────── -->
@@ -873,8 +810,9 @@ html, body {
 
     <div class="pane totals glass">
       <div class="label">Lifetime</div>
-      <div class="total"><span id="life-kwh">287</span><span class="unit">kWh</span></div>
       <div class="stack">
+        <div class="row hero"><span class="k">Total harvested</span>
+             <span class="v"><span id="life-kwh">287</span> kWh</span></div>
         <div class="row"><span class="k">≈ delivered to car</span>
              <span class="v"><span id="life-mi">1,140</span> mi</span></div>
         <div class="row"><span class="k">Best day</span>
@@ -882,7 +820,8 @@ html, body {
         <div class="row"><span class="k">Solar streak</span>
              <span class="v">🔥 <span id="streak">3</span> days</span></div>
         <div class="row"><span class="k">Last action</span>
-             <span class="v" id="last-action">tesla/start — Tessa</span></div>
+             <span class="v" style="font-size:13px; color:var(--text-dim)"
+                   id="last-action">tesla/start — Tessa</span></div>
       </div>
     </div>
 
@@ -948,10 +887,8 @@ let fetchErr = null;
 
 function fmtHM(mins) {
   mins = ((mins % 1440) + 1440) % 1440;
-  const h24 = Math.floor(mins / 60), m = Math.floor(mins) % 60;
-  const ampm = h24 < 12 ? "am" : "pm";
-  const h12 = ((h24 + 11) % 12) + 1;
-  return `${h12}:${String(m).padStart(2,"0")} ${ampm}`;
+  const h = Math.floor(mins / 60), m = Math.floor(mins) % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
 function parseClockMins(iso) {
   const d = new Date(iso);
@@ -976,33 +913,16 @@ function spawnParticles() {
 /* ── top banner: clock, daylight, health ─────────────────────── */
 function renderTopBanner() {
   const d = new Date(state.clock_iso);
-  $("clock").textContent = fmtHM(d.getHours() * 60 + d.getMinutes());
-
-  const fmtDur = mins => mins > 0
-    ? `${Math.floor(mins/60)}h ${mins%60}m` : "0m";
+  $("clock").textContent = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 
   const rem = state.daylight_remaining_min;
-  $("daylight-rem").textContent = fmtDur(rem);
+  $("daylight-rem").textContent = rem > 0
+    ? `${Math.floor(rem/60)}h ${rem%60}m` : "0m";
 
-  const sr = state.sunrise_min, ss = state.sunset_min;
-  if (sr != null && ss != null) {
-    $("daylight-total").textContent = fmtDur(ss - sr);
-  }
+  $("sun-now-w").textContent = fmt(state.sun_now_w);
 
   // health dots — find by label text
   const h = state.health || {};
-  const units = state.units || [];
-  const act = units.find(u => u.name.includes("Active"))  || null;
-  const pas = units.find(u => u.name.includes("Passive")) || null;
-  const car = state.car || null;
-  // signature per dot: only pulse if the underlying signal changed since last tick
-  const sigs = {
-    "Active":  act ? `${act.soc_pct}|${act.solar_in_w}|${act.ac_out_w}|${act.ac_on}` : "",
-    "Passive": pas ? `${pas.soc_pct}|${pas.solar_in_w}|${pas.ac_out_w}|${pas.ac_on}` : "",
-    "Beetle":  String(h["Beetle BLE"] || ""),
-    "Tessa":   car ? `${car.car_soc_pct}|${car.actual_amps}|${car.charging}|${car.reachable}` : "",
-  };
-  window._lastHealthSig = window._lastHealthSig || {};
   document.querySelectorAll(".health-inline .item").forEach(el => {
     const name = el.textContent.trim();
     const dot = el.querySelector(".dot");
@@ -1015,14 +935,6 @@ function renderTopBanner() {
     const status = key ? h[key] : "ok";
     if (status === "warn") dot.classList.add("warn");
     else if (status === "bad") dot.classList.add("bad");
-
-    const sig = sigs[name];
-    if (sig && sig !== window._lastHealthSig[name]) {
-      dot.classList.remove("beat");
-      void dot.offsetWidth;     // restart animation
-      dot.classList.add("beat");
-      window._lastHealthSig[name] = sig;
-    }
   });
 }
 function findHealthKey(h, hint) {
@@ -1156,7 +1068,6 @@ function renderTotals() {
   const t = state.today || {};
   $("kwh-today").textContent = (t.kwh_today || 0).toFixed(1);
   $("kwh-expected").textContent = (t.kwh_expected_today || 0).toFixed(1);
-  $("kwh-expected-mi").textContent = t.miles_expected_today ?? 0;
 
   const pill = $("track-pill");
   const lvl = t.track_level || "info";
@@ -1173,20 +1084,13 @@ function renderTotals() {
   $("miles-today").textContent = "+" + (t.miles_to_car ?? 0);
   $("kwh-to-car").textContent = `${(t.kwh_delivered_to_car || 0).toFixed(1)} kWh today`;
 
-  // ETA — prefer the Tesla-reported minutes_to_full (charge_state.minutes_to_full_charge
-  // off the BLE proxy); fall back to a naive 75kWh-pack / 90%-target calc until that
-  // sensor publishes.
+  // ETA — naive: assume rate 2.4kW if car charging, target 90%
   const car = state.car;
-  if (car && car.charging) {
-    let etaMin = null;
-    if (car.minutes_to_full != null && car.minutes_to_full > 0) {
-      etaMin = car.minutes_to_full;
-    } else if (car.car_soc_pct != null) {
-      const need = Math.max(0, (90 - car.car_soc_pct) / 100 * 75);
-      const rate_kW = ((car.set_amps || 0) * (car.charger_voltage || 120)) / 1000;
-      if (rate_kW > 0.5) etaMin = need / rate_kW * 60;
-    }
-    if (etaMin != null) {
+  if (car && car.charging && car.car_soc_pct != null) {
+    const need = Math.max(0, (90 - car.car_soc_pct) / 100 * 75); // 75kWh pack assumption
+    const rate_kW = ((car.set_amps || 0) * (car.charger_voltage || 120)) / 1000;
+    if (rate_kW > 0.5) {
+      const etaMin = need / rate_kW * 60;
       const nowMin = parseClockMins(state.clock_iso);
       $("eta").textContent = fmtHM(nowMin + etaMin);
     } else {

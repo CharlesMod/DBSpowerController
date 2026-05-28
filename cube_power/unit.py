@@ -23,6 +23,13 @@ class Unit:
         self.ip: str = spec["ip"]
         self.version: float = float(spec.get("version", 3.3))
         self.model: str = spec.get("model", "DBS1400Pro")
+        # Bus group: units in the same group share an electrical bus feeding
+        # one car. Today both DBS units are group "a" (parallel into Tessa);
+        # the Anker will become group "b".
+        self.bus_group: str = str(spec.get("bus_group", "a"))
+        # Per-unit AC output capacity (W) — controller uses sum of usable
+        # units' max_out_w in a group to size what a car can draw.
+        self.max_out_w: int = int(spec.get("max_out_w", 1200))
         self.dps_map = dps_map
 
         self.state = DeviceState(unit_id=self.unit_id, name=self.name, ip=self.ip)

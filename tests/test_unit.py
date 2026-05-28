@@ -3,7 +3,7 @@
 import time
 
 from helpers import FakeConfig, feed, make_unit
-from dbs_controller.types import UnitRole
+from cube_power.types import UnitRole
 
 
 def test_classify_normal():

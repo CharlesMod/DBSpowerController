@@ -5,9 +5,8 @@ DC output (8760-hour TMY) for each configured array and caches it to disk. At
 runtime `expected_w(unit_id)` returns the modeled DC watts for the current hour,
 which the dashboard compares against the measured `solar_in_w`.
 
-Each array is configured in `config.yaml` (`pvwatts_arrays`) with its capacity,
-tracker type (array_type), and the site ZIP code (`pvwatts_zip`). Needs a free
-NREL API key.
+Each DBS unit has its own 1.44 kW array; one is on a single-axis tracker
+(array_type=2), the other dual-axis (array_type=4). Site: zip 60084.
 
 PVWatts v8 docs: https://developer.nrel.gov/docs/solar/pvwatts/v8/
 """
@@ -20,6 +19,9 @@ import time
 import urllib.parse
 import urllib.request
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+_DISPLAY_TZ = ZoneInfo("America/Chicago")
 from pathlib import Path
 
 from .config import Config
@@ -65,7 +67,7 @@ class PvWatts:
     def _fetch_array(self, api_key: str, spec: dict) -> dict:
         params = {
             "api_key": api_key,
-            "address": str(self.cfg.get("pvwatts_zip", "")),
+            "address": str(self.cfg.get("pvwatts_zip", "60084")),
             "system_capacity": spec.get("system_capacity_kw", 1.44),
             "module_type": spec.get("module_type", 0),
             "losses": spec.get("losses_pct", 14),
@@ -122,7 +124,7 @@ class PvWatts:
 
     @staticmethod
     def _hour_of_year(when: datetime | None = None) -> int:
-        when = when or datetime.now()
+        when = when or datetime.now(_DISPLAY_TZ)
         idx = (when.timetuple().tm_yday - 1) * 24 + when.hour
         return min(max(idx, 0), 8759)
 

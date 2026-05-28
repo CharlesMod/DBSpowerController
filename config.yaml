@@ -1,33 +1,48 @@
-# DBSpowerController tunables — hot-reloaded within ~5 s, no restart needed.
+# cube-power tunables — hot-reloaded within ~5 s, no restart needed.
 #
 # Phase 1 model: cars are fixed ~1200 W sinks. The only control lever is each
 # DBS unit's AC inverter (dp109) on/off. Tesla amperage control = future Phase 2.
 
 # ── master safety gate ───────────────────────────────────────────────
-dry_run: true           # true: log decisions without switching AC.
-                        # set false once you've watched it behave.
+dry_run: false          # false: the coordinator actually switches AC.
+                        # set true to log decisions without acting.
 
 # ── polling ──────────────────────────────────────────────────────────
-poll_interval_s: 10            # Tuya status poll cadence
+poll_interval_s: 10            # Tuya full-status refresh cadence
 coordinator_tick_s: 15         # coordinator decision cadence
 state_stale_s: 60              # a unit with no fresh data past this is OFFLINE
 
 # ── SoC floor (the core constraint) ──────────────────────────────────
 soc_floor_pct: 33              # unit drops off the bus at/below this
 soc_hard_floor_pct: 30         # backstop, below the soft floor
-soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this
+soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this (40%)
 
 # ── car-count inference ──────────────────────────────────────────────
-car_sink_w: 1200               # assumed per-car fixed draw
+car_sink_w: 1200               # assumed per-car fixed draw (1 car per bus_group)
 min_ac_dwell_s: 300            # min gap before turning a unit's AC back on
+                               # (bypassed on a plug-in edge — see below)
 ac_confirm_timeout_s: 90       # re-issue an AC command if unconfirmed this long
 
-# ── charge balancing (one-car case: duty-cycle the weaker unit) ──────
-divergence_trigger_pct: 15     # enter REBALANCING above this SoC gap
+# ── inverter idle-shutoff (Tesla-first actuation) ────────────────────
+# Charging is started/stopped at the car via BLE. dp109 (the DBS AC inverter
+# relay) is only cycled for: floor protection on a single unit while another
+# is still healthy, rebalancing, and this idle-shutoff. When no car has been
+# plugged into a group's bus for this many minutes, drop the inverters to OFF
+# to avoid standby idle loss. Resumes on the next plug-in edge.
+inverter_idle_shutoff_min: 30
+# The car reports its charge port voltage. If it's actively charging at this
+# voltage or higher, it's on a different source than our DBS bus (~120 V) —
+# typically a 240 V wall charger. Leave our inverters off in that case.
+external_source_min_voltage_v: 150
+
+# ── charge balancing (one-car case: duty-cycle the weak unit) ────────
+divergence_trigger_pct: 15     # enter REBALANCING only if the SoC gap >= this
 divergence_persist_min: 10
 divergence_clear_pct: 5        # exit REBALANCING below this gap
 divergence_clear_persist_min: 5
-floor_proximity_pct: 5         # urgent rebalance if weak unit this close to floor
+rebalance_min_strong_soc_pct: 60   # don't rebalance while the strong unit is
+                                   # below this — there's no 100% clipping risk
+                                   # to chase, and floor protection still works
 weak_recovered_pct: 85         # secondary exit: weak unit charged near-full
 rebalance_min_dwell_min: 20    # min time between balance-state changes
 rebalance_max_duration_min: 90 # safety cap on a single rebalance
@@ -36,10 +51,28 @@ rebalance_max_duration_min: 90 # safety cap on a single rebalance
 override_default_ttl_h: 48
 override_max_ttl_h: 168
 
-# ── NREL PVWatts (optional diagnostic — never feeds control) ─────────
+# ── Tesla wake-on-energize (BLE via ESPHome Beetle proxy) ────────────
+# When the bus is energized, a deeply asleep Tesla can miss the power-on
+# edge and not start charging. After each energize the coordinator runs a
+# bounded "wake campaign": it wakes the car(s) over BLE until one draws.
+# BLE is proxied by a Beetle ESP32-C6 running yoziru/esphome-tesla-ble,
+# reached over ESPHome native API (port 6053). One Beetle per VIN.
+tesla_wake_enabled: true
+tesla_wake_campaign_s: 480     # how long to keep retrying after an energize
+tesla_wake_retry_s: 150        # gap between wake attempts within a campaign
+tesla_dry_run: false           # true: log BLE commands without sending them
+tesla_beetle_secrets_path: /home/cmod/esphome-tesla-ble/secrets.yaml
+tesla_force_refresh_on_read: false  # true: ask Beetle to repoll the car on each refresh
+tesla_vins:
+  - vin: "5YJ3E1EA2PF433840"
+    name: "Tessa"
+    beetle_host: "192.168.86.22"
+    bus_group: "a"
+
+# ── NREL PVWatts (diagnostic only — never feeds control) ─────────────
 # nrel_api_key:                  # free key from https://developer.nrel.gov/signup/
-# pvwatts_zip: "00000"           # your site ZIP code
+pvwatts_zip: "60084"
 pvwatts_arrays: []
 # pvwatts_arrays:
-#   - {unit_id: "<your-unit-A-id>", array_type: 2, system_capacity_kw: 1.44}
-#   - {unit_id: "<your-unit-B-id>", array_type: 4, system_capacity_kw: 1.44}
+#   - {unit_id: "eb8c6cf9d24036e3damoji", array_type: 2, system_capacity_kw: 1.44}
+#   - {unit_id: "eb3254627dd497625euf3h", array_type: 4, system_capacity_kw: 1.44}
