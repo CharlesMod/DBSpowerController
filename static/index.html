@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1920, initial-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <title>cube-power · preview</title>
 <style>
 /* ─────────────────────────────────────────────────────────────────
@@ -142,6 +142,7 @@ html, body {
 
 /* ── TOP STRIP ───────────────────────────────────────────────── */
 .top-strip {
+  position: relative;
   display: flex; align-items: center; gap: clamp(10px, 2vw, 28px);
   padding: 0 clamp(14px, 1.6vw, 22px);
   font-variant-numeric: tabular-nums;
@@ -187,6 +188,8 @@ html, body {
   50%      { filter: drop-shadow(0 0 18px var(--sun-glow)); }
 }
 .top-strip .daylight {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
   white-space: nowrap;
   color: var(--text-dim); font-size: clamp(14px, 1.7vh, 19px);
 }
