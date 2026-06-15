@@ -59,6 +59,10 @@ class TeslaState:
     minutes_to_full: int | None = None  # from Tesla protocol charge_state.minutes_to_full_charge
     updated_at: float = 0.0
     last_error: str | None = None
+    # BLE link health (the dual-VIN Beetle can run weak/flaky links)
+    rssi: int | None = None             # ble_signal dBm; weaker than ~-80 = flaky
+    ble_connected: bool | None = None   # ble_client connection switch state
+    data_fresh: bool = True             # False = entity states have gone stale
 
 
 @dataclass
@@ -66,17 +70,22 @@ class GroupSnapshot:
     """Per bus-group view: which car, plug state, balance state, units feeding it."""
 
     group_id: str
-    vin: str | None = None
-    car_name: str | None = None
-    plugged_in: bool | None = None
+    vin: str | None = None                  # primary (first) VIN — back-compat
+    vins: list[str] = field(default_factory=list)   # all VINs in the group
+    car_name: str | None = None             # primary car name — back-compat
+    plugged_in: bool | None = None          # ANY car in group plugged?
     last_plugged_at: float | None = None    # epoch; None if never seen plugged
     want_bus_live: bool = False             # coordinator wants inverters on
     units: list[str] = field(default_factory=list)
     units_on: int = 0
     balance_state: str = BalanceState.BALANCED
     weak_unit: str | None = None
-    charging_commanded: bool | None = None  # last Tesla on/off intent (None = no-op)
+    # Overload cap: VINs cleared to charge this tick. At most one car per live
+    # inverter (two ~1200 W cars exceed one ~1400 W inverter on the shared bus),
+    # lowest-SoC first. Empty = none cleared (bus off / no internal car).
+    charge_allowed_vins: list[str] = field(default_factory=list)
     note: str = ""
+    alert: str | None = None                # actionable user alert (e.g. replug needed)
 
 
 @dataclass

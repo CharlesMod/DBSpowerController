@@ -30,6 +30,20 @@ ac_confirm_timeout_s: 90       # re-issue an AC command if unconfirmed this long
 # plugged into a group's bus for this many minutes, drop the inverters to OFF
 # to avoid standby idle loss. Resumes on the next plug-in edge.
 inverter_idle_shutoff_min: 30
+# No-solar idle shutdown: when system solar-in stays below solar_dark_w for
+# solar_idle_shutoff_min minutes AND no car is actively drawing, drop the
+# inverters to OFF — there's no sun to route and nothing charging, so running
+# the bus is pure standby waste (and a dark bus can't get a car "stuck").
+# Resumes when solar returns or a car is plugged in. solar_idle_require_idle:
+# true = never interrupt a car drawing from the battery; false = hard shutdown.
+solar_idle_shutoff_min: 5
+solar_dark_w: 50
+solar_idle_require_idle: true
+# A full battery rejects charge and harvests ~0 W even in bright sun, so a low
+# solar-in reading only means "dark" when the pack still has headroom. When every
+# live unit is at/above this SoC, low harvest is ignored for darkness detection
+# (prevents a 100%-SoC bank from tripping a false no-solar shutdown at midday).
+solar_full_soc_pct: 99
 # The car reports its charge port voltage. If it's actively charging at this
 # voltage or higher, it's on a different source than our DBS bus (~120 V) —
 # typically a 240 V wall charger. Leave our inverters off in that case.
@@ -60,14 +74,49 @@ override_max_ttl_h: 168
 tesla_wake_enabled: true
 tesla_wake_campaign_s: 480     # how long to keep retrying after an energize
 tesla_wake_retry_s: 150        # gap between wake attempts within a campaign
+# Wall keep-alive: a car plugged into a live external (wall) source should be
+# charging. We wake+start any that has dozed off; for cars CONFIRMED on a wall
+# (>=external_source_min_voltage_v seen) we also push the charge-amp request,
+# since a stalled car can sit at 0 A. The EVSE pilot clamps the real draw to
+# the circuit's rating, so this only matters for wall cars — never the DBS bus.
+wall_keepalive_retry_s: 180    # gap between keep-alive nudges per car
+wall_probe_max_attempts: 3     # blind probes before a car is deemed on a dead bus
+wall_charge_amps: 32           # amp request for confirmed-wall cars (NEMA 14-50; pilot-clamped)
+# Stuck-bus watchdog: inverters ON + batteries OK but a plugged car draws
+# nothing (wedged EVSE handshake). Re-present the pilot by cycling dp109. We try
+# a car-side wake+start first, then cycle the AC relay; throttled and capped.
+stuck_bus_detect_s: 180        # zero-draw this long (while bus live) = stuck; >dp158 lag (~6s+ immediate, ~130s settle) so a laggy reading can't false-trigger
+stuck_bus_draw_w: 50           # inverter AC-out below this = no car drawing (the only reliable signal; car BLE port readings lie)
+stuck_bus_carside_s: 45        # grace after the car-side kick before relay cycle
+stuck_bus_cycle_dwell_s: 20    # hold inverter OFF long enough the car registers a real EVSE disconnect and re-handshakes on restore (8s was too short)
+stuck_bus_cycle_throttle_s: 150  # ~the measured soft-stall recovery time (~130s), so we conclude hard-stuck fast
+stuck_bus_max_cycles: 2        # the experiment showed ONE cycle recovers a soft stall in ~130s; if 2 don't, it's hard-stuck (replug)
+stuck_bus_giveup_cooldown_s: 1800  # after the cap, wait this long then resume cycling
+stuck_bus_cycle_dwell_step_s: 10   # add this to the off-dwell each successive cycle
+stuck_bus_cycle_dwell_max_s: 60    # cap on the escalating off-dwell
+dbs_charge_amps: 15            # target amp floor for DBS cars — pushed on wake, kick, and keep-alive (NOT pilot-clamped like wall)
+tesla_keep_alive_s: 480        # while reachable+plugged+idle on a live bus, re-wake+floor this often so it never sleeps into 0A
 tesla_dry_run: false           # true: log BLE commands without sending them
 tesla_beetle_secrets_path: /home/cmod/esphome-tesla-ble/secrets.yaml
-tesla_force_refresh_on_read: false  # true: ask Beetle to repoll the car on each refresh
+tesla_force_refresh_on_read: true   # true: ask Beetle to repoll the car (now adaptive — only when data has aged)
+tesla_refresh_min_age_s: 25         # only force a re-poll once cached data is older than this (cuts BLE chatter on weak links)
+tesla_stale_after_s: 150            # no fresh entity push in this long = link stale -> reachable False + reconnect
+tesla_reconnect_throttle_s: 90      # base gap between BLE reconnect toggles per car (doubles each failure)
+tesla_reconnect_max_throttle_s: 900 # backoff cap — an asleep car's radio is off, so don't thrash it
 tesla_vins:
   - vin: "5YJ3E1EA2PF433840"
     name: "Tessa"
     beetle_host: "192.168.86.22"
     bus_group: "a"
+  # ── Meridith (second Tesla, on the Anker bus) ──────────────────
+  # Beetle + Anker still pending; while beetle_host is unset the BLE
+  # subsystem skips connecting, so this entry just makes the dashboard
+  # show her group as a placeholder column. Add beetle_host once her
+  # ESP32 is paired (see docs/adding-a-second-car.md).
+  - vin: "5YJ3E1EA1PF674661"
+    name: "Meridith"
+    bus_group: "a"                    # shares the DBS bus with Tessa until Anker
+    beetle_host: "192.168.86.22"      # shared with Tessa (dual-VIN firmware)
 
 # ── NREL PVWatts (diagnostic only — never feeds control) ─────────────
 # nrel_api_key:                  # free key from https://developer.nrel.gov/signup/
@@ -76,3 +125,41 @@ pvwatts_arrays: []
 # pvwatts_arrays:
 #   - {unit_id: "eb8c6cf9d24036e3damoji", array_type: 2, system_capacity_kw: 1.44}
 #   - {unit_id: "eb3254627dd497625euf3h", array_type: 4, system_capacity_kw: 1.44}
+
+# ── Solar forecast (Open-Meteo — drives the dashboard "expected" curve) ──
+# Weather-only expected PV output. Free, no API key. This is a PURE forecast: it
+# never reads panel output, so actual-vs-expected stays an honest inefficiency
+# detector (no bias correction). Method: a geometric clear-sky baseline
+# (terrestrial_radiation) times a MEDIAN clearness index across several global
+# models — the median rejects the one model that blunders clear-vs-overcast
+# (Open-Meteo's "best_match" picked GFS on an overcast day and showed full sun).
+# Refetched every refresh_min; falls back to the synthetic bell if unreachable.
+# See cube_power/solar_forecast.py.
+solar_forecast:
+  enabled: true
+  lat: 42.2658                   # ZIP 60084 (Wauconda, IL)
+  lon: -88.1395
+  refresh_min: 60                # forecast re-pull cadence
+  # Global models to ensemble (per-hour median optical density). ECMWF/ICON lead
+  # in skill; the others add spread the median can reject.
+  models: [ecmwf_ifs025, icon_seamless, gfs_seamless, gem_seamless, meteofrance_seamless]
+  # Inherent, mostly-static losses: wiring + mismatch + MPPT/charge-controller,
+  # plus a BASELINE soiling/degradation allowance. Temperature is NOT here — it's
+  # the dynamic eta_temp term below. (Was a single 0.86 that also buried temp;
+  # pulling temp out, the static remainder is ~0.92.)
+  equipment_derate: 0.92
+  # Dynamic cell-temperature derate (Faiman cell-temp model + power tempco).
+  temperature:
+    enabled: true
+    gamma_per_c: -0.004          # module power temperature coefficient (/°C)
+    faiman_u0: 25.0              # Faiman heat-loss coeff (W/m²K)
+    faiman_u1: 6.84              # Faiman wind coeff (W·s/m³·K)
+  default_system_capacity_kw: 1.44
+  default_plane_factor: 1.0      # used for any unit not listed below
+  # Per-unit array. plane_factor scales flat-plane (GHI) output for the mount:
+  #   1.0  = panels lying flat / pointed up (GHI is the correct plane)
+  #   ~1.1 = fixed tilt facing the sun's average position
+  #   >1.1 = active trackers (raise once tracking is confirmed)
+  arrays:
+    - {unit_id: "eb8c6cf9d24036e3damoji", system_capacity_kw: 1.44, plane_factor: 1.0}  # DBS Passive
+    - {unit_id: "eb3254627dd497625euf3h", system_capacity_kw: 1.44, plane_factor: 1.0}  # DBS Active

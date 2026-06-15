@@ -7,6 +7,11 @@ telemetry.csv
 snapshot.json
 tinytuya.json
 pvwatts_cache.json
+solar_forecast_cache.json
+wall_state.json
+*.bak
+*.egg-info/
+.pytest_cache/
 tesla_private_key.pem
 tesla_public_key.pem
 .tesla-cache.json

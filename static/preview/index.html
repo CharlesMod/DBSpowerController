@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1920, initial-scale=1, user-scalable=no" />
+<!-- Tablet rendering fix (matches DBSpowerController commit 3b6d11a): render at
+     the device's real width so the fluid layout fits any screen. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <title>cube-power · preview</title>
 <style>
 /* ─────────────────────────────────────────────────────────────────
@@ -190,16 +192,12 @@ html, body {
 
 /* ── HERO ────────────────────────────────────────────────────── */
 .hero {
-  /* Single-cell hero now. Position-relative so floating overlays
-     anchor to its content box. No glass: no border, no inner glow,
-     no backdrop-filter. Just a subtle dark tint to ground content
-     against the blurred caustics layer underneath. */
+  /* Single shared canvas — sun + batteries + mini chart + floats
+     all rendered once. Cars are stacked top/bottom on the right side
+     of the flow SVG, each showing just SoC and incoming W. */
   position: relative;
   min-height: 0; overflow: hidden;
   padding: clamp(16px, 2vh, 24px);
-  /* Transparent — body is flat dark depth-0, caustics are off, so
-     the hero shows the same flat dark as the dashboard padding.
-     The bioluminescent particles drift through it visibly. */
   background: transparent;
 }
 .flow-card {
@@ -208,6 +206,8 @@ html, body {
   overflow: hidden;
   display: flex; flex-direction: column;
 }
+.car-stack.placeholder { opacity: 0.40; }
+.battery-slot.hidden { display: none; }
 
 /* Floating overlays — borderless, transparent, glow-readable. */
 .float {
@@ -358,6 +358,17 @@ html, body {
 .node-value-sm { font-size: 22px; fill: #7da3b8;
                  font-variant-numeric: tabular-nums; }
 .node-name  { font-size: 24px; fill: #d7eef8; font-weight: 400; }
+
+/* ── disconnected entities: grey out the icon and the charge ───── */
+.car-stack.disconnected .car-body   { fill: #3a4a57; opacity: 0.45; filter: none; }
+.car-stack.disconnected .car-window { fill: #18222b; }
+.car-stack.disconnected .car-wheel  { fill: #18222b; stroke: #44617a; }
+.car-stack.disconnected .car-port   { fill: #2a3742; }
+.battery-slot.disconnected .bat-shell     { stroke: #44617a; }
+.battery-slot.disconnected .bat-tip       { fill: #44617a; opacity: 0.5; }
+.battery-slot.disconnected .bat-fill      { fill: #2f3b45 !important; }
+.battery-slot.disconnected .bat-pct       { fill: #5a6b78; }
+.battery-slot.disconnected .bat-glow-ring { stroke: #2f3b45; opacity: 0.3; }
 .bat-role   { font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
               fill: #7da3b8; }
 .bat-pct    { font-size: 30px; fill: #d7eef8; font-weight: 400; }
@@ -594,16 +605,16 @@ html, body {
     </div>
   </header>
 
-  <!-- ── HERO (single full cell with floating overlays) ──────── -->
+  <!-- ── HERO (single shared canvas; cars stacked top/bottom) ────── -->
   <main class="hero">
 
-    <!-- floating natural-language recommendation -->
+    <!-- recommendation: shows the most-urgent group's advisory -->
     <div class="float recommend" id="recommend">
       <span class="pill-inline">advisory</span>
-      <span id="recommend-text">Charging Tessa from sun · both units climbing steady</span>
+      <span id="recommend-text">—</span>
     </div>
 
-    <!-- floating mini "today's shape" curve -->
+    <!-- mini "today's shape" curve (combined across groups) -->
     <div class="float shape">
       <div class="label">Today's Shape</div>
       <div class="legend">
@@ -620,35 +631,40 @@ html, body {
       </svg>
     </div>
 
-    <!-- floating "harvested today" -->
+    <!-- harvested today (combined) -->
     <div class="float harvested">
       <div class="label">Harvested today</div>
-      <div class="bignum"><span id="kwh-today">6.1</span><span class="unit">kWh</span></div>
-      <div class="sub">expected <strong id="kwh-expected">11.2</strong>
+      <div class="bignum"><span id="kwh-today">0.0</span><span class="unit">kWh</span></div>
+      <div class="sub">expected <strong id="kwh-expected">—</strong> kWh
+        (<span id="mi-expected">0</span> mi)
         · <span class="abyss-pill ok" id="track-pill"
                 style="font-size: 11px; padding: 2px 9px; letter-spacing:1.5px;
                        text-transform:uppercase; border:1px solid currentColor;
                        border-radius:999px; color: var(--ok);
-                       background: rgba(34,197,94,0.10);">on track</span></div>
+                       background: rgba(34,197,94,0.10);">—</span></div>
     </div>
 
-    <!-- floating "delivered to Tessa" -->
+    <!-- delivered (combined to all cars) -->
     <div class="float delivered">
-      <div class="label">Delivered to Tessa</div>
-      <div class="bignum"><span id="miles-today">+24</span><span class="unit">mi</span></div>
-      <div class="sub">ETA <strong id="eta">17:42</strong> · <span id="kwh-to-car">4.8 kWh today</span></div>
+      <div class="label">Delivered</div>
+      <div class="bignum"><span id="miles-today">+0</span><span class="unit">mi</span></div>
+      <div class="sub">to cars · <span id="kwh-to-car">0.0 kWh today</span></div>
     </div>
 
-    <!-- flow diagram (the void with sun/batteries/car horizontally) -->
+    <!-- the flow diagram -->
     <section class="flow-card">
       <svg class="flow-svg" viewBox="0 0 1200 620"
            preserveAspectRatio="xMidYMid meet">
 
-        <!-- bioluminescent edges between nodes (horizontal middle band) -->
+        <!-- edges -->
         <path id="edge-sun-bat" class="flow-edge edge-solar flowing"
               d="M 240 310 Q 380 310 510 310" />
-        <path id="edge-bat-car" class="flow-edge edge-car flowing"
-              d="M 750 310 Q 850 310 920 310" />
+        <!-- top branch: batteries → Tessa (upper right) -->
+        <path id="edge-bat-car-top" class="flow-edge edge-car flowing"
+              d="M 750 290 Q 840 240 920 200" />
+        <!-- bottom branch: batteries → Meridith (lower right) -->
+        <path id="edge-bat-car-bot" class="flow-edge edge-car flowing"
+              d="M 750 330 Q 840 380 920 420" />
         <path id="edge-sun-lost" class="flow-edge edge-loss"
               d="M 200 250 Q 200 180 320 160" />
         <text id="clip-label" x="330" y="155"
@@ -656,14 +672,11 @@ html, body {
               style="letter-spacing: 3px; text-transform: uppercase; opacity: 0;
                      filter: drop-shadow(0 0 6px #ff2e58);">CLIPPING</text>
 
-        <!-- ════ SUN NODE ════ -->
+        <!-- ════ SUN ════ -->
         <g transform="translate(200,310)">
-          <!-- soft halo behind sun -->
           <circle r="80" fill="url(#sunHalo)" opacity="0.55"/>
-          <!-- pulsing ring -->
           <circle r="62" class="bat-glow-ring" stroke="#ffd47a"
                   style="animation-duration: 5s;"/>
-          <!-- sun rays -->
           <g>
             <line class="glow-sun-ray" x1="0" y1="-48" x2="0" y2="-62" />
             <line class="glow-sun-ray" x1="0" y1="48"  x2="0" y2="62" />
@@ -674,83 +687,112 @@ html, body {
             <line class="glow-sun-ray" x1="-34" y1="34"  x2="-44" y2="44" />
             <line class="glow-sun-ray" x1="34"  y1="34"  x2="44"  y2="44" />
           </g>
-          <!-- sun disc -->
           <circle class="glow-sun" r="34"/>
-
-          <text class="node-label" y="100" text-anchor="middle">SOLAR IN</text>
+          <text class="node-label" y="100" text-anchor="middle" style="fill:#ffd47a;">SOLAR IN</text>
           <text class="node-value" y="150" text-anchor="middle"
-                id="flow-sun-w" style="fill:#7cffb1; filter:drop-shadow(0 0 12px #5af0a8);">1,547</text>
-          <text class="node-value-sm" y="178" text-anchor="middle">W</text>
+                id="flow-sun-w" style="fill:#ffd47a; filter:drop-shadow(0 0 12px #ff9a3c);">0</text>
+          <text class="node-value-sm" y="178" text-anchor="middle" style="fill:#ffd47a;">W</text>
         </g>
 
-        <!-- ════ BATTERY pair ════ -->
+        <!-- ════ BATTERIES ════ shared across groups; up to 3 slots -->
         <g transform="translate(600,310)" id="batteries">
-
           <text class="node-label" y="-160" text-anchor="middle">STORED</text>
           <text class="node-value-sm" y="-138" text-anchor="middle"
                 style="font-size:20px; fill:#5fe1ff; filter:drop-shadow(0 0 6px #2cc8ee);"
-                id="bat-total">1.66 / 2.88 kWh</text>
+                id="bat-total">—</text>
 
-          <!-- Active (left) -->
-          <g transform="translate(-100, 0)">
+          <g transform="translate(-100, 0)" class="battery-slot" id="bat-slot-0">
             <circle class="bat-glow-ring" r="86" cx="0" cy="0"/>
-            <text class="bat-role" y="-118" text-anchor="middle">ACTIVE</text>
+            <text class="bat-role" y="-118" text-anchor="middle"
+                  id="bat-name-0">—</text>
             <rect class="bat-tip"   x="-20" y="-114" width="40" height="10" rx="3"/>
             <rect class="bat-shell" x="-50" y="-104" width="100" height="200" rx="14"/>
-            <rect class="bat-fill" id="bat-active-fill"
+            <rect class="bat-fill" id="bat-fill-0"
                   x="-46" y="-30" width="92" height="118" rx="10"
                   fill="#5fe1ff" color="#5fe1ff"/>
-            <text class="bat-pct" y="14" text-anchor="middle"
-                  id="bat-active-pct">71%</text>
+            <text class="bat-pct" y="14" text-anchor="middle" id="bat-pct-0">—</text>
             <text class="node-value-sm" y="118" text-anchor="middle"
-                  id="bat-active-sub">+1,143 W</text>
+                  id="bat-sub-0">—</text>
           </g>
 
-          <!-- Passive (right) -->
-          <g transform="translate(100, 0)">
+          <g transform="translate(100, 0)" class="battery-slot" id="bat-slot-1">
             <circle class="bat-glow-ring" r="86" cx="0" cy="0"
                     style="animation-delay: 2s;"/>
-            <text class="bat-role" y="-118" text-anchor="middle">PASSIVE</text>
+            <text class="bat-role" y="-118" text-anchor="middle"
+                  id="bat-name-1">—</text>
             <rect class="bat-tip"   x="-20" y="-114" width="40" height="10" rx="3"/>
             <rect class="bat-shell" x="-50" y="-104" width="100" height="200" rx="14"/>
-            <rect class="bat-fill" id="bat-passive-fill"
+            <rect class="bat-fill" id="bat-fill-1"
                   x="-46" y="-1" width="92" height="89" rx="10"
                   fill="#5fe1ff" color="#5fe1ff"/>
-            <text class="bat-pct" y="14" text-anchor="middle"
-                  id="bat-passive-pct">44%</text>
+            <text class="bat-pct" y="14" text-anchor="middle" id="bat-pct-1">—</text>
             <text class="node-value-sm" y="118" text-anchor="middle"
-                  id="bat-passive-sub">+404 W</text>
+                  id="bat-sub-1">—</text>
+          </g>
+
+          <!-- 3rd slot (Anker, when added). Hidden by default. -->
+          <g transform="translate(0, 0)" class="battery-slot hidden" id="bat-slot-2">
+            <circle class="bat-glow-ring" r="86" cx="0" cy="0"
+                    style="animation-delay: 4s;"/>
+            <text class="bat-role" y="-118" text-anchor="middle"
+                  id="bat-name-2">—</text>
+            <rect class="bat-tip"   x="-20" y="-114" width="40" height="10" rx="3"/>
+            <rect class="bat-shell" x="-50" y="-104" width="100" height="200" rx="14"/>
+            <rect class="bat-fill" id="bat-fill-2"
+                  x="-46" y="-30" width="92" height="118" rx="10"
+                  fill="#5fe1ff" color="#5fe1ff"/>
+            <text class="bat-pct" y="14" text-anchor="middle" id="bat-pct-2">—</text>
+            <text class="node-value-sm" y="118" text-anchor="middle"
+                  id="bat-sub-2">—</text>
           </g>
         </g>
 
-        <!-- ════ CAR NODE ════ -->
-        <g transform="translate(1000,310)" id="car-group">
-          <!-- charging cable arc — short, leftward to where the bat-car edge ends -->
-          <path id="car-cable" class="cable connected"
-                d="M -120 0 Q -100 0 -88 0" />
-          <!-- glow halo when charging -->
-          <ellipse cx="0" cy="0" rx="120" ry="60"
-                   fill="url(#carGlow)" opacity="0.5"/>
-          <!-- car silhouette (Tesla-Y-ish) -->
+        <!-- ════ CAR — TESSA (top right) ════ -->
+        <g transform="translate(1000,200)" id="car-top" class="car-stack">
+          <path id="car-top-cable" class="cable car-cable" d="M -120 0 Q -100 0 -88 0" />
+          <ellipse cx="0" cy="0" rx="120" ry="50" fill="url(#carGlow)" opacity="0.5"/>
           <g>
             <path class="car-body"
-                  d="M -100 -10 Q -90 -42 -55 -44 L 55 -44 Q 90 -42 100 -10
-                     L 100 20 Q 100 32 88 32 L -88 32 Q -100 32 -100 20 Z"/>
+                  d="M -85 -8 Q -76 -36 -46 -38 L 46 -38 Q 76 -36 85 -8
+                     L 85 16 Q 85 26 75 26 L -75 26 Q -85 26 -85 16 Z"/>
             <path class="car-window"
-                  d="M -70 -42 Q -60 -58 -32 -60 L 32 -60 Q 60 -58 70 -42
-                     L 60 -30 Q 30 -34 0 -34 Q -30 -34 -60 -30 Z"/>
-            <circle class="car-wheel" cx="-65" cy="32" r="13"/>
-            <circle class="car-wheel" cx="65"  cy="32" r="13"/>
-            <circle id="car-port" class="car-port charging" cx="-88" cy="0" r="6"/>
+                  d="M -60 -36 Q -52 -50 -28 -52 L 28 -52 Q 52 -50 60 -36
+                     L 50 -26 Q 26 -29 0 -29 Q -26 -29 -50 -26 Z"/>
+            <circle class="car-wheel" cx="-55" cy="26" r="11"/>
+            <circle class="car-wheel" cx="55"  cy="26" r="11"/>
+            <circle id="car-top-port" class="car-port" cx="-75" cy="0" r="5"/>
           </g>
-          <text class="node-label" y="68" text-anchor="middle">TESSA</text>
-          <text class="node-value" y="120" text-anchor="middle"
-                id="car-soc" style="fill:#b4f0ff; filter:drop-shadow(0 0 10px #4ad8e4);">77%</text>
-          <text class="node-value-sm" y="148" text-anchor="middle"
-                id="car-sub">charging · 12 A · 1,440 W</text>
+          <text class="node-label" y="56" text-anchor="middle" id="car-top-name">TESSA</text>
+          <text class="node-value" y="100" text-anchor="middle"
+                id="car-top-soc"
+                style="fill:#b4f0ff; filter:drop-shadow(0 0 10px #4ad8e4); font-size: 46px;">—</text>
+          <text class="node-value-sm" y="126" text-anchor="middle"
+                id="car-top-sub">—</text>
         </g>
 
-        <!-- gradients used above -->
+        <!-- ════ CAR — MERIDITH (bottom right) ════ -->
+        <g transform="translate(1000,420)" id="car-bot" class="car-stack">
+          <path id="car-bot-cable" class="cable car-cable" d="M -120 0 Q -100 0 -88 0" />
+          <ellipse cx="0" cy="0" rx="120" ry="50" fill="url(#carGlow)" opacity="0.5"/>
+          <g>
+            <path class="car-body"
+                  d="M -85 -8 Q -76 -36 -46 -38 L 46 -38 Q 76 -36 85 -8
+                     L 85 16 Q 85 26 75 26 L -75 26 Q -85 26 -85 16 Z"/>
+            <path class="car-window"
+                  d="M -60 -36 Q -52 -50 -28 -52 L 28 -52 Q 52 -50 60 -36
+                     L 50 -26 Q 26 -29 0 -29 Q -26 -29 -50 -26 Z"/>
+            <circle class="car-wheel" cx="-55" cy="26" r="11"/>
+            <circle class="car-wheel" cx="55"  cy="26" r="11"/>
+            <circle id="car-bot-port" class="car-port" cx="-75" cy="0" r="5"/>
+          </g>
+          <text class="node-label" y="56" text-anchor="middle" id="car-bot-name">MERIDITH</text>
+          <text class="node-value" y="100" text-anchor="middle"
+                id="car-bot-soc"
+                style="fill:#b4f0ff; filter:drop-shadow(0 0 10px #4ad8e4); font-size: 46px;">—</text>
+          <text class="node-value-sm" y="126" text-anchor="middle"
+                id="car-bot-sub">—</text>
+        </g>
+
         <defs>
           <radialGradient id="sunHalo">
             <stop offset="0%" stop-color="#ffd47a" stop-opacity="0.55"/>
@@ -764,35 +806,9 @@ html, body {
         </defs>
       </svg>
     </section>
-
-    <!-- CURVE CHART -->
-    <section class="curve-card glass">
-      <div class="head">
-        <span class="title">Today's Shape</span>
-        <div class="curve-legend">
-          <span><span class="swatch" style="background:#7cffb1; color:#7cffb1;"></span>actual</span>
-          <span><span class="swatch" style="background:#ffd47a; color:#ffd47a;"></span>forecast</span>
-          <span><span class="swatch" style="background:#5fe1ff; color:#5fe1ff;"></span>SoC</span>
-        </div>
-      </div>
-      <svg class="curve-svg" id="curve-svg" viewBox="0 0 620 540"
-           preserveAspectRatio="none">
-        <line class="axis-line" x1="40" y1="500" x2="580" y2="500"/>
-        <line class="axis-line" x1="40" y1="20"  x2="40"  y2="500"/>
-        <g id="y-ticks"></g>
-        <g id="x-ticks"></g>
-
-        <path id="curve-soc-area" class="curve-soc-area" d=""/>
-        <path id="curve-soc-line" class="curve-soc-line" d=""/>
-        <path id="curve-forecast" class="curve-forecast" d=""/>
-        <path id="curve-actual"   class="curve-actual"   d=""/>
-
-        <line id="curve-now" class="curve-now-line" x1="0" y1="20" x2="0" y2="500"/>
-        <circle id="sun-rise" class="sun-marker" cx="0" cy="500" r="4"/>
-        <circle id="sun-set"  class="sun-marker" cx="0" cy="500" r="4"/>
-      </svg>
-    </section>
   </main>
+
+
 
   <!-- ── BOTTOM STRIP ────────────────────────────────────── -->
   <footer class="bottom-strip">
@@ -812,7 +828,7 @@ html, body {
       <div class="label">Lifetime</div>
       <div class="stack">
         <div class="row hero"><span class="k">Total harvested</span>
-             <span class="v"><span id="life-kwh">287</span> kWh</span></div>
+             <span class="v"><span id="life-kwh">287</span> kWh (<span id="life-saved">$0</span>)</span></div>
         <div class="row"><span class="k">≈ delivered to car</span>
              <span class="v"><span id="life-mi">1,140</span> mi</span></div>
         <div class="row"><span class="k">Best day</span>
@@ -872,15 +888,18 @@ html, body {
 
 <script>
 /* ─────────────────────────────────────────────────────────────────
-   Live dashboard — fetches /api/dashboard every POLL_MS and renders.
-   No more simulation. Debug panel hidden unless URL has ?debug=1.
+   Live dashboard — single shared canvas with 2 stacked car slots.
+   Fetches /api/dashboard every POLL_MS.
+     cells[0] → top car (Tessa)
+     cells[1] → bottom car (Meridith, placeholder until provisioned)
+   The sun, batteries, mini chart, recommendation, harvested, delivered
+   are all shared (rendered once from top-level + aggregated cell data).
    ───────────────────────────────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 const fmt = (n, d=0) => Number(n).toLocaleString("en-US", { maximumFractionDigits: d });
 
 const POLL_MS = 5000;
 
-// Render-state cache. Populated from /api/dashboard.
 let state = null;
 let lastFetchAt = 0;
 let fetchErr = null;
@@ -910,151 +929,286 @@ function spawnParticles() {
   }
 }
 
-/* ── top banner: clock, daylight, health ─────────────────────── */
+/* ── top banner ──────────────────────────────────────────────── */
 function renderTopBanner() {
   const d = new Date(state.clock_iso);
-  $("clock").textContent = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-
+  $("clock").textContent =
+    `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
   const rem = state.daylight_remaining_min;
   $("daylight-rem").textContent = rem > 0
     ? `${Math.floor(rem/60)}h ${rem%60}m` : "0m";
-
   $("sun-now-w").textContent = fmt(state.sun_now_w);
 
-  // health dots — find by label text
   const h = state.health || {};
   document.querySelectorAll(".health-inline .item").forEach(el => {
     const name = el.textContent.trim();
     const dot = el.querySelector(".dot");
     if (!dot) return;
     dot.classList.remove("warn", "bad");
-    const key = name === "Active"  ? findHealthKey(h, "Active")
-              : name === "Passive" ? findHealthKey(h, "Passive")
-              : name === "Beetle"  ? "Beetle BLE"
-              : name === "Tessa"   ? "Tessa link" : null;
+    let key = null;
+    if (name === "Active")       key = Object.keys(h).find(k => k.endsWith("Active"));
+    else if (name === "Passive") key = Object.keys(h).find(k => k.endsWith("Passive"));
+    else if (name === "Beetle")  key = Object.keys(h).find(k => k.startsWith("Beetle"));
+    else if (name === "Tessa")   key = Object.keys(h).find(k => k.endsWith("Tessa link"));
     const status = key ? h[key] : "ok";
     if (status === "warn") dot.classList.add("warn");
     else if (status === "bad") dot.classList.add("bad");
   });
 }
-function findHealthKey(h, hint) {
-  // health keys are unit *names* (e.g. "DBS Active") which include the hint
-  for (const k of Object.keys(h)) if (k.includes(hint)) return k;
-  return null;
-}
 
-/* ── flow diagram (left→right: sun, batteries, car) ──────────── */
-function renderFlow() {
-  const units = state.units || [];
-  const sunTotal = state.sun_now_w || 0;
-  $("flow-sun-w").textContent = fmt(sunTotal);
-
-  // pick active/passive units by name match
-  const act = units.find(u => u.name.includes("Active"))  || {};
-  const pas = units.find(u => u.name.includes("Passive")) || {};
-
-  fillBat("bat-active-fill",  "bat-active-pct",  "bat-active-sub",
-          act.soc_pct ?? 0, act.solar_in_w ?? 0, act.ac_out_w ?? 0);
-  fillBat("bat-passive-fill", "bat-passive-pct", "bat-passive-sub",
-          pas.soc_pct ?? 0, pas.solar_in_w ?? 0, pas.ac_out_w ?? 0);
-
+/* ── batteries — populate slot 0..2 from union of all groups' units ── */
+function renderBatteries() {
+  // Dedupe by unit id — multiple cells can share the same group's units
+  // (e.g. Tessa + Meridith both bound to bus_group "a"), so naively
+  // concating each cell's units would render the same physical battery
+  // twice (or more).
+  const allUnits = [];
+  const seen = new Set();
+  for (const c of (state.cells || [])) {
+    if (c.placeholder) continue;
+    for (const u of (c.units || [])) {
+      if (seen.has(u.id)) continue;
+      seen.add(u.id);
+      allUnits.push(u);
+    }
+  }
+  // total stored + capacity
   $("bat-total").textContent =
     `${(state.stored_kwh || 0).toFixed(2)} / ${(state.stored_capacity_kwh || 0).toFixed(2)} kWh`;
 
-  const car = state.car;
+  // x-positions for 1, 2, or 3 batteries
+  const positions = allUnits.length <= 1 ? [0]
+                  : allUnits.length === 2 ? [-100, 100]
+                  : [-160, 0, 160];
+
+  for (let i = 0; i < 3; i++) {
+    const slot = $(`bat-slot-${i}`);
+    const u = allUnits[i];
+    if (u) {
+      slot.classList.remove("hidden");
+      slot.setAttribute("transform", `translate(${positions[i]}, 0)`);
+      fillBatterySlot(i, u);
+    } else {
+      slot.classList.add("hidden");
+    }
+  }
+}
+function fillBatterySlot(idx, unit) {
+  const soc = unit.soc_pct || 0;
+  const maxH = 195;
+  const fill = (soc / 100) * maxH;
+  const y = -100 + (maxH - fill);
+  const fillEl = $(`bat-fill-${idx}`);
+  fillEl.setAttribute("y", y);
+  fillEl.setAttribute("height", fill);
+  let color = "#5fe1ff";
+  if (soc <= 33) color = "#ff6e8c";
+  else if (soc <= 40) color = "#ffb84a";
+  else if (soc >= 100) color = "#c79bff";
+  fillEl.setAttribute("fill", color);
+  fillEl.setAttribute("color", color);
+  $(`bat-name-${idx}`).textContent =
+    (unit.name || "").replace(/^DBS /, "").toUpperCase();
+  $(`bat-pct-${idx}`).textContent = fmt(soc) + "%";
+  const dW = (unit.solar_in_w || 0) - (unit.ac_out_w || 0);
+  const sub = $(`bat-sub-${idx}`);
+  sub.textContent = (dW >= 0 ? "+" : "−") + fmt(Math.abs(dW)) + " W";
+  sub.setAttribute("fill", dW >= 0 ? "#7cffb1" : "#b4f0ff");
+
+  // Disconnected (stale/offline per health): grey the battery icon + charge.
+  const disc = !!(state.health && state.health[unit.name] === "bad");
+  $(`bat-slot-${idx}`).classList.toggle("disconnected", disc);
+}
+
+/* ── cars — top = cells[0], bottom = cells[1] ─────────────────── */
+/* ── populate one car group's text/port/cable (no positioning) ── */
+function populateCarSlot(slot, cell) {
+  const car = cell?.car;
+  $(`car-${slot}-name`).textContent = (cell?.car_label || "—").toUpperCase();
   const plugged  = !!(car && car.plugged_in);
   const charging = !!(car && car.charging);
+  $(`car-${slot}-port`).classList.toggle("charging", plugged && charging);
+  $(`car-${slot}-cable`).classList.toggle("connected", plugged);
 
-  $("car-port").classList.toggle("charging", plugged && charging);
-  $("car-cable").classList.toggle("connected", plugged);
-
-  if (car) {
-    if (car.car_soc_pct != null)
-      $("car-soc").textContent = Math.round(car.car_soc_pct) + "%";
-    else
-      $("car-soc").textContent = "—";
-    if (charging) {
-      const w = (car.set_amps || 0) * (car.charger_voltage || 120);
-      $("car-sub").textContent =
-        `charging · ${car.set_amps || 0} A · ${fmt(w)} W`;
-    } else if (plugged) {
-      $("car-sub").textContent = car.charging_state
-        ? `${car.charging_state.toLowerCase()}`
-        : "plugged · idle";
-    } else {
-      $("car-sub").textContent = "not connected";
-    }
+  const socEl = $(`car-${slot}-soc`);
+  const subEl = $(`car-${slot}-sub`);
+  socEl.textContent = car?.car_soc_pct != null
+    ? Math.round(car.car_soc_pct) + "%" : "—";
+  if (charging) {
+    const w = (car.set_amps || 0) * (car.charger_voltage || 120);
+    subEl.textContent = `${fmt(w)} W incoming`;
+  } else if (plugged) {
+    subEl.textContent = car.charging_state
+      ? car.charging_state.toLowerCase() : "plugged";
   } else {
-    $("car-soc").textContent = "—";
-    $("car-sub").textContent = "no car configured";
+    subEl.textContent = "—";
   }
 
-  // flow edges
-  const sunBat  = $("edge-sun-bat");
-  const batCar  = $("edge-bat-car");
-  const sunLost = $("edge-sun-lost");
+  // Disconnected (BLE link down): grey the icon + charge so it reads as offline.
+  const reachable = !(car && car.reachable === false);
+  $(`car-${slot}`).classList.toggle("disconnected", !reachable);
+  socEl.style.fill   = reachable ? "#b4f0ff" : "#5a6b78";
+  socEl.style.filter = reachable ? "drop-shadow(0 0 10px #4ad8e4)" : "none";
+}
 
-  const flowing = sunTotal > 50;
-  const avgSoc = ((act.soc_pct || 0) + (pas.soc_pct || 0)) / 2;
-  const isClipping = avgSoc >= 95 && sunTotal > 200 && !(plugged && charging);
+/* ── decide which cars to render, where, and which edges to show ──
+   A car is rendered ONLY if it's actually plugged in (placeholder
+   cells and configured-but-unplugged cars are hidden entirely).
+     0 plugged → no car icons, no car-edges
+     1 plugged → centered car at y=310 (same as old single-car layout)
+     2 plugged → top at y=200, bottom at y=420
+   ───────────────────────────────────────────────────────────────── */
+function renderCars() {
+  const cells = state.cells || [];
+  const visible = [];
+  for (const c of cells) {
+    if (c.car && c.car.plugged_in === true) visible.push(c);
+  }
 
-  sunBat.classList.toggle("flowing", flowing && !isClipping);
+  const carTop  = $("car-top"),       carBot  = $("car-bot");
+  const edgeTop = $("edge-bat-car-top"), edgeBot = $("edge-bat-car-bot");
+
+  if (visible.length === 0) {
+    carTop.style.display = "none";
+    carBot.style.display = "none";
+    edgeTop.style.opacity = 0;
+    edgeBot.style.opacity = 0;
+    return;
+  }
+  if (visible.length === 1) {
+    carTop.style.display = "";
+    carBot.style.display = "none";
+    carTop.setAttribute("transform", "translate(1000,310)");
+    edgeTop.setAttribute("d", "M 750 310 Q 870 310 920 310");
+    edgeTop.style.opacity = "";
+    edgeBot.style.opacity = 0;
+    populateCarSlot("top", visible[0]);
+    return;
+  }
+  // 2 visible (or more — we only show 2 slots)
+  carTop.style.display = "";
+  carBot.style.display = "";
+  carTop.setAttribute("transform", "translate(1000,200)");
+  carBot.setAttribute("transform", "translate(1000,420)");
+  edgeTop.setAttribute("d", "M 750 290 Q 840 240 920 200");
+  edgeBot.setAttribute("d", "M 750 330 Q 840 380 920 420");
+  edgeTop.style.opacity = "";
+  edgeBot.style.opacity = "";
+  populateCarSlot("top", visible[0]);
+  populateCarSlot("bot", visible[1]);
+}
+
+/* ── recommendation — pick the highest-urgency across groups ──── */
+function renderRecommendation() {
+  const levelRank = { bad: 3, warn: 2, info: 1 };
+  let best = { level: "info", text: "—" };
+  for (const c of (state.cells || [])) {
+    if (c.placeholder) continue;
+    const r = c.recommendation;
+    if (!r) continue;
+    if (levelRank[r.level] > levelRank[best.level]) best = r;
+  }
+  $("recommend-text").textContent = best.text;
+  const pill = $("recommend").querySelector(".pill-inline");
+  pill.className = "pill-inline " + (best.level === "info" ? "" : best.level);
+  pill.textContent = best.level === "bad" ? "alert"
+                   : best.level === "warn" ? "heads up"
+                   : "advisory";
+}
+
+/* ── flow edges — sun→batteries + clipping (per-car edges are
+   managed by renderCars based on plugged-in visibility) ────────── */
+function renderFlowEdges() {
+  $("flow-sun-w").textContent = fmt(state.sun_now_w || 0);
+
+  const sunW = state.sun_now_w || 0;
+  const flowing = sunW > 50;
+  const sunBat = $("edge-sun-bat");
+  sunBat.classList.toggle("flowing", flowing);
   sunBat.classList.toggle("dim",     !flowing);
-  sunBat.style.strokeWidth = Math.max(3, Math.min(12, sunTotal / 220));
+  sunBat.style.strokeWidth = Math.max(3, Math.min(12, sunW / 220));
 
-  const carDrinking = plugged && charging;
-  batCar.classList.toggle("flowing", carDrinking);
-  batCar.classList.toggle("dim", !carDrinking);
-  batCar.style.strokeWidth = carDrinking ? 7 : 4;
+  // per-car edge flow class — only matters for currently-visible edges
+  const cellsArr = state.cells || [];
+  for (const [idx, slot] of [[0, "top"], [1, "bot"]]) {
+    const cell = cellsArr[idx];
+    const edge = $(`edge-bat-car-${slot}`);
+    const drinking = !!(cell?.car && cell.car.plugged_in && cell.car.charging);
+    edge.classList.toggle("flowing", drinking);
+    edge.classList.toggle("dim", !drinking);
+    edge.style.strokeWidth = drinking ? 6 : 3;
+  }
 
+  // clipping (any group with >=95% avg SoC and >200W and no car drinking)
+  let isClipping = false;
+  for (const c of cellsArr) {
+    if (c.placeholder) continue;
+    const avg = (c.units || []).length
+      ? c.units.reduce((a, u) => a + (u.soc_pct || 0), 0) / c.units.length : 0;
+    const carDrinking = !!(c.car && c.car.plugged_in && c.car.charging);
+    if (avg >= 95 && (c.sun_w || 0) > 200 && !carDrinking) {
+      isClipping = true; break;
+    }
+  }
+  const sunLost = $("edge-sun-lost");
   sunLost.classList.toggle("flowing", isClipping);
   sunLost.classList.toggle("dim", !isClipping);
   sunLost.style.opacity = isClipping ? 1 : 0;
   $("clip-label").style.opacity = isClipping ? 0.9 : 0;
 }
-function fillBat(id, pctId, subId, soc, solar_w, ac_out_w) {
-  const maxH = 195;
-  const fill = (soc / 100) * maxH;
-  const y = -100 + (maxH - fill);
-  const el = $(id);
-  el.setAttribute("y", y);
-  el.setAttribute("height", fill);
-  let color = "#5fe1ff";
-  if (soc <= 33) color = "#ff6e8c";
-  else if (soc <= 40) color = "#ffb84a";
-  else if (soc >= 100) color = "#c79bff";
-  el.setAttribute("fill", color);
-  el.setAttribute("color", color);
-  $(pctId).textContent = fmt(soc) + "%";
-  // delta = solar in − ac out (signed); + means net charging
-  const dW = (solar_w || 0) - (ac_out_w || 0);
-  $(subId).textContent = (dW >= 0 ? "+" : "−") + fmt(Math.abs(dW)) + " W";
-  $(subId).setAttribute("fill", dW >= 0 ? "#7cffb1" : "#b4f0ff");
-}
 
-/* ── mini curve (upper-right: today's actual/forecast/SoC) ──── */
+/* ── mini curve — combined actual + combined forecast + combined SoC ── */
 function renderMiniCurve() {
   const x0 = 20, x1 = 310, y0 = 12, y1 = 140;
   const xMin = 4 * 60, xMax = 22 * 60;
-  // y scale based on combined-units expected peak
-  const yMax = 1440 * 2 * 1.05;
+  // Combined peak across cells
+  let nArrays = 0;
+  for (const c of (state.cells || [])) {
+    if (!c.placeholder) nArrays += (c.units || []).length;
+  }
+  const yMax = 1440 * Math.max(1, nArrays) * 1.05;
   const xs = (mins) => x0 + (mins - xMin) / (xMax - xMin) * (x1 - x0);
   const ys = (w)    => y1 - w / yMax * (y1 - y0);
 
-  const today = state.today || {};
+  // sum across cells per minute
+  const sumPerMin = (key) => {
+    const buckets = {};
+    for (const c of (state.cells || [])) {
+      for (const [m, v] of (c.today?.[key] || [])) {
+        buckets[m] = (buckets[m] || 0) + v;
+      }
+    }
+    return Object.entries(buckets)
+      .map(([m, v]) => [+m, v]).sort((a, b) => a[0] - b[0]);
+  };
+  const avgPerMin = (key) => {
+    const buckets = {};
+    for (const c of (state.cells || [])) {
+      for (const [m, v] of (c.today?.[key] || [])) {
+        if (!buckets[m]) buckets[m] = { sum: 0, n: 0 };
+        buckets[m].sum += v; buckets[m].n += 1;
+      }
+    }
+    return Object.entries(buckets)
+      .map(([m, b]) => [+m, b.sum / b.n]).sort((a, b) => a[0] - b[0]);
+  };
+
+  const actual = sumPerMin("actual");
+  const forecast = sumPerMin("forecast");
+  const soc = avgPerMin("soc");
+
   const pts = (arr, fn) => arr && arr.length
-    ? "M " + arr.map(([m, v]) => `${xs(m)},${ys(fn ? fn(v) : v)}`).join(" L ")
+    ? "M " + arr.map(([m, v]) => `${xs(m)},${fn ? fn(v) : ys(v)}`).join(" L ")
     : "";
 
-  $("mini-forecast").setAttribute("d", pts(today.forecast || []));
-  $("mini-actual").setAttribute("d",   pts(today.actual   || []));
-
-  // SoC is 0–100%, map onto same yMax-scaled axis as 0–yMax via percent→W mock
-  const socPts = today.soc || [];
-  if (socPts.length > 1) {
-    const d = "M " + socPts.map(([m, p]) =>
+  $("mini-forecast").setAttribute("d", pts(forecast));
+  $("mini-actual"  ).setAttribute("d", pts(actual));
+  if (soc.length > 1) {
+    const d = "M " + soc.map(([m, p]) =>
       `${xs(m)},${y1 - (p / 100) * (y1 - y0)}`).join(" L ");
     $("mini-soc-line").setAttribute("d", d);
+  } else {
+    $("mini-soc-line").setAttribute("d", "");
   }
 
   const nowMin = parseClockMins(state.clock_iso);
@@ -1063,61 +1217,54 @@ function renderMiniCurve() {
   $("mini-now").setAttribute("x2", nx);
 }
 
-/* ── floating numbers (harvested / delivered) ───────────────── */
+/* ── totals (harvested + delivered, combined) ──────────────────── */
 function renderTotals() {
-  const t = state.today || {};
-  $("kwh-today").textContent = (t.kwh_today || 0).toFixed(1);
-  $("kwh-expected").textContent = (t.kwh_expected_today || 0).toFixed(1);
+  let kwhToday = 0, kwhExpected = 0, kwhCar = 0, miles = 0, miExpected = 0;
+  let worstLevel = "info", worstLabel = "—";
+  const rank = { ok: 1, info: 2, warn: 3, bad: 4 };
+  // Harvest stats (kwh_today / kwh_expected_today) are group-level — every cell
+  // in a bus_group carries the same numbers, so count each group once. Per-car
+  // delivery stats (kwh_delivered_to_car / miles_to_car) stay summed per cell.
+  const seenGroups = new Set();
+  for (const c of (state.cells || [])) {
+    const t = c.today || {};
+    if (!seenGroups.has(c.group_id)) {
+      seenGroups.add(c.group_id);
+      kwhToday    += t.kwh_today || 0;
+      kwhExpected += t.kwh_expected_today || 0;
+      miExpected  += t.mi_expected_today || 0;
+    }
+    kwhCar     += t.kwh_delivered_to_car || 0;
+    miles      += t.miles_to_car || 0;
+    if ((rank[t.track_level] || 0) > (rank[worstLevel] || 0)) {
+      worstLevel = t.track_level || "info";
+      worstLabel = t.track_label || "—";
+    }
+  }
+  $("kwh-today").textContent = kwhToday.toFixed(1);
+  $("kwh-expected").textContent = kwhExpected.toFixed(1);
+  $("mi-expected").textContent = miExpected;
 
   const pill = $("track-pill");
-  const lvl = t.track_level || "info";
   pill.style.color =
-    lvl === "ok"   ? "var(--ok)"   :
-    lvl === "warn" ? "var(--warn)" :
-    lvl === "bad"  ? "var(--loss)" : "var(--text-dim)";
+    worstLevel === "ok"   ? "var(--ok)"   :
+    worstLevel === "warn" ? "var(--warn)" :
+    worstLevel === "bad"  ? "var(--loss)" : "var(--text-dim)";
   pill.style.background =
-    lvl === "ok"   ? "rgba(34,197,94,0.10)" :
-    lvl === "warn" ? "rgba(245,158,11,0.10)" :
-    lvl === "bad"  ? "rgba(239,68,68,0.10)" : "transparent";
-  pill.textContent = t.track_label || "—";
+    worstLevel === "ok"   ? "rgba(34,197,94,0.10)" :
+    worstLevel === "warn" ? "rgba(245,158,11,0.10)" :
+    worstLevel === "bad"  ? "rgba(239,68,68,0.10)" : "transparent";
+  pill.textContent = worstLabel;
 
-  $("miles-today").textContent = "+" + (t.miles_to_car ?? 0);
-  $("kwh-to-car").textContent = `${(t.kwh_delivered_to_car || 0).toFixed(1)} kWh today`;
-
-  // ETA — naive: assume rate 2.4kW if car charging, target 90%
-  const car = state.car;
-  if (car && car.charging && car.car_soc_pct != null) {
-    const need = Math.max(0, (90 - car.car_soc_pct) / 100 * 75); // 75kWh pack assumption
-    const rate_kW = ((car.set_amps || 0) * (car.charger_voltage || 120)) / 1000;
-    if (rate_kW > 0.5) {
-      const etaMin = need / rate_kW * 60;
-      const nowMin = parseClockMins(state.clock_iso);
-      $("eta").textContent = fmtHM(nowMin + etaMin);
-    } else {
-      $("eta").textContent = "—";
-    }
-  } else {
-    $("eta").textContent = "—";
-  }
-}
-
-/* ── recommendation (advisory pill + text) ──────────────────── */
-function renderRecommendation() {
-  const r = state.recommendation || { level: "info", text: "—" };
-  $("recommend-text").textContent = r.text;
-  const pill = $("recommend").querySelector(".pill-inline");
-  pill.className = "pill-inline " + (r.level === "info" ? "" : r.level);
-  pill.textContent = r.level === "bad" ? "alert"
-                    : r.level === "warn" ? "heads up"
-                    : "advisory";
+  $("miles-today").textContent = "+" + miles;
+  $("kwh-to-car").textContent = `${kwhCar.toFixed(1)} kWh today`;
 }
 
 /* ── bottom strip ────────────────────────────────────────────── */
 function renderBottomStrip() {
   const l = state.losses_today || {};
   $("loss-total").textContent = (l.total ?? 0).toFixed(1);
-  const list = $("loss-list");
-  list.innerHTML = `
+  $("loss-list").innerHTML = `
     <div class="item"><span class="name">Clipping</span><span>${(l.clipping ?? 0).toFixed(1)}</span>${l.clipping > 0.05 ? '<span class="live">●</span>' : ''}</div>
     <div class="item"><span class="name">Conversion</span><span>${(l.conversion ?? 0).toFixed(1)}</span></div>
     <div class="item"><span class="name">Inverter idle</span><span>${(l.idle ?? 0).toFixed(1)}</span></div>
@@ -1126,6 +1273,7 @@ function renderBottomStrip() {
 
   const lt = state.lifetime || {};
   $("life-kwh").textContent = fmt(lt.kwh || 0);
+  $("life-saved").textContent = "$" + ((lt.kwh || 0) * 0.16).toFixed(2);  // $0.16/kWh
   $("life-mi").textContent  = fmt(lt.miles || 0);
   $("best-day").textContent = (lt.best_day_kwh || 0).toFixed(1);
   $("streak").textContent   = lt.streak || 0;
@@ -1141,18 +1289,20 @@ function renderBottomStrip() {
   $("last-action").textContent = `${ageText} · ${la.text || "—"}`;
 }
 
-/* ── tick: render everything we have ────────────────────────── */
+/* ── tick ────────────────────────────────────────────────────── */
 function tick() {
   if (!state) return;
   renderTopBanner();
-  renderFlow();
+  renderBatteries();
+  renderCars();
+  renderRecommendation();
+  renderFlowEdges();
   renderMiniCurve();
   renderTotals();
-  renderRecommendation();
   renderBottomStrip();
 }
 
-/* ── fetch loop ─────────────────────────────────────────────── */
+/* ── fetch loop ──────────────────────────────────────────────── */
 async function pollDashboard() {
   try {
     const r = await fetch("/api/dashboard", { cache: "no-store" });
@@ -1163,19 +1313,15 @@ async function pollDashboard() {
     tick();
   } catch (e) {
     fetchErr = e.message;
-    // keep showing last good state; flag the last-action receipt as stale
-    if (state) {
-      $("last-action").textContent = `⚠ stale (${fetchErr})`;
-    }
+    if (state) $("last-action").textContent = `⚠ stale (${fetchErr})`;
   }
 }
-
 function startPolling() {
   pollDashboard();
   setInterval(pollDashboard, POLL_MS);
 }
 
-/* ── debug panel: hidden unless ?debug=1 ────────────────────── */
+/* ── debug panel hidden unless ?debug=1 ──────────────────────── */
 function setupDebug() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("debug") !== "1") {

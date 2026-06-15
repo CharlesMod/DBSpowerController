@@ -8,6 +8,7 @@ resolves to True — the actuator logs instead of doing real Tuya I/O.
 
 from __future__ import annotations
 
+import tempfile
 import time
 from pathlib import Path
 
@@ -71,6 +72,10 @@ def make_coordinator(cfg: FakeConfig, n_units: int = 2, log_path: Path | None = 
              for i in range(n_units)}
     bus = Bus()
     log = DecisionLog(log_path or Path("/tmp/cp_pytest.jsonl"), bus)
+    # Isolate persisted wall-state per coordinator so tests don't bleed into
+    # each other (or into the real repo wall_state.json).
+    cfg.data.setdefault("wall_state_path",
+                        str(Path(tempfile.mkdtemp()) / "wall_state.json"))
     coord = Coordinator(units, cfg, bus, log)
     return coord, units
 
@@ -120,6 +125,8 @@ class FakeTesla:
 
     async def set_amps(self, vin, amps):
         self.set_amps_count += 1
+        if (car := self.cars.get(vin)):
+            car.set_amps = amps
         return True
 
     async def wake_all_and_charge(self):

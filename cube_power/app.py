@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response as StarletteResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -25,6 +26,7 @@ from .controller import Coordinator  # noqa: E402
 from .dashboard import build_dashboard  # noqa: E402
 from .decisions import DecisionLog  # noqa: E402
 from .pvwatts import PvWatts  # noqa: E402
+from .solar_forecast import SolarForecast  # noqa: E402
 from .tesla_ble import TeslaBle  # noqa: E402
 from .tuya_poller import poll_unit  # noqa: E402
 from .unit import Unit  # noqa: E402
@@ -36,6 +38,7 @@ CONFIG_PATH = ROOT / "config.yaml"
 DEVICES_PATH = ROOT / "devices.json"
 DECISIONS_LOG = ROOT / "decisions.jsonl"
 PVWATTS_CACHE = ROOT / "pvwatts_cache.json"
+FORECAST_CACHE = ROOT / "solar_forecast_cache.json"
 TELEMETRY_LOG = ROOT / "telemetry.csv"
 STATIC_DIR = ROOT / "static"
 TELEMETRY_HEADER = (
@@ -109,12 +112,14 @@ async def lifespan(app: FastAPI):
     tesla = TeslaBle(cfg, log)
     coordinator = Coordinator(units, cfg, bus, log, tesla=tesla)
     pvwatts = PvWatts(cfg, log, PVWATTS_CACHE)
+    forecast = SolarForecast(cfg, log, FORECAST_CACHE)
 
     app.state.cfg = cfg
     app.state.bus = bus
     app.state.units = units
     app.state.coordinator = coordinator
     app.state.pvwatts = pvwatts
+    app.state.forecast = forecast
 
     stop = asyncio.Event()
     tasks: list[asyncio.Task] = []
@@ -124,6 +129,7 @@ async def lifespan(app: FastAPI):
     if units:
         tasks.append(asyncio.create_task(coordinator.run(), name="coordinator"))
     tasks.append(asyncio.create_task(pvwatts.run(), name="pvwatts"))
+    tasks.append(asyncio.create_task(forecast.run(), name="solar-forecast"))
     tasks.append(asyncio.create_task(_config_watcher(cfg, stop), name="config-watcher"))
     if units:
         tasks.append(asyncio.create_task(
@@ -135,6 +141,7 @@ async def lifespan(app: FastAPI):
         stop.set()
         coordinator.stop()
         pvwatts.stop()
+        forecast.stop()
         await tesla.stop()
         for t in tasks:
             t.cancel()
@@ -154,6 +161,7 @@ def _snapshot() -> dict:
         "devices": [u.snapshot() for u in units.values()],
         "coordinator": app.state.coordinator.state_dict(),
         "pvwatts": app.state.pvwatts.snapshot(),
+        "forecast": app.state.forecast.snapshot(),
         "config": app.state.cfg.data,
         "now": time.time(),
     }
@@ -179,6 +187,7 @@ async def get_dashboard():
             tesla=getattr(app.state.coordinator, "tesla", None),
             telemetry_path=TELEMETRY_LOG,
             decisions_path=DECISIONS_LOG,
+            forecast=getattr(app.state, "forecast", None),
         )
     except Exception as e:
         # Don't kill the dashboard tick if backend hiccups — return partial.
@@ -244,5 +253,16 @@ async def ws(socket: WebSocket):
         app.state.bus.unsubscribe(q)
 
 
+class _NoCacheStatic(StaticFiles):
+    """Serve static assets with Cache-Control: no-cache so the kiosk tablet
+    always revalidates (cheap 304 when unchanged) and picks up deploys on the
+    next page load instead of running stale cached HTML/JS."""
+
+    def file_response(self, *args, **kwargs) -> StarletteResponse:
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+    app.mount("/", _NoCacheStatic(directory=str(STATIC_DIR), html=True), name="static")
