@@ -6,9 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "tinytuya>=1.16",
     "fastapi>=0.110",
+    "starlette>=0.37",
     "uvicorn[standard]>=0.27",
     "pyyaml>=6.0",
     "anyio>=4.0",
+    "aioesphomeapi>=45",
 ]
 
 [project.optional-dependencies]
