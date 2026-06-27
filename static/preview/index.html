@@ -1222,9 +1222,10 @@ function renderTotals() {
   let kwhToday = 0, kwhExpected = 0, kwhCar = 0, miles = 0, miExpected = 0;
   let worstLevel = "info", worstLabel = "—";
   const rank = { ok: 1, info: 2, warn: 3, bad: 4 };
-  // Harvest stats (kwh_today / kwh_expected_today) are group-level — every cell
-  // in a bus_group carries the same numbers, so count each group once. Per-car
-  // delivery stats (kwh_delivered_to_car / miles_to_car) stay summed per cell.
+  // All stats are group-level — every cell in a bus_group carries the same
+  // numbers (harvest AND delivery are aggregated over the group's units).
+  // Count each group once to avoid double-counting when a group has 2 cars
+  // (e.g. Tessa + Meridith sharing bus "a" -> two cells, same delivered total).
   const seenGroups = new Set();
   for (const c of (state.cells || [])) {
     const t = c.today || {};
@@ -1233,9 +1234,9 @@ function renderTotals() {
       kwhToday    += t.kwh_today || 0;
       kwhExpected += t.kwh_expected_today || 0;
       miExpected  += t.mi_expected_today || 0;
+      kwhCar      += t.kwh_delivered_to_car || 0;
+      miles       += t.miles_to_car || 0;
     }
-    kwhCar     += t.kwh_delivered_to_car || 0;
-    miles      += t.miles_to_car || 0;
     if ((rank[t.track_level] || 0) > (rank[worstLevel] || 0)) {
       worstLevel = t.track_level || "info";
       worstLabel = t.track_label || "—";
