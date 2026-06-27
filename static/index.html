@@ -484,25 +484,41 @@ html, body {
   letter-spacing: 3px; text-transform: uppercase; color: var(--text-faint);
 }
 
-/* losses pane — fonts respond to pane height via cqh */
+/* losses pane — the big number sits BESIDE the breakdown so the wide-short
+   pane fills horizontally instead of overflowing its height vertically. */
+.bottom-strip .pane.losses {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "label label" "total list";
+  column-gap: clamp(16px, 3cqw, 32px);
+  row-gap: clamp(4px, 1cqh, 10px);
+  align-items: center;
+}
+.losses .label { grid-area: label; align-self: start; }
 .losses .total {
-  font-size: clamp(20px, 32cqh, 44px); font-weight: 300; color: var(--loss);
+  grid-area: total; align-self: center;
+  font-size: clamp(20px, 28cqh, 40px); font-weight: 300; color: var(--loss);
   text-shadow: 0 0 24px var(--loss-glow);
   font-variant-numeric: tabular-nums; margin: 0;
   line-height: 1;
 }
-.losses .total .unit { font-size: clamp(11px, 13cqh, 18px);
-                       color: var(--text-dim); margin-left: 6px;
+.losses .total .unit { display: block; font-size: clamp(10px, 11cqh, 14px);
+                       color: var(--text-dim); margin: 3px 0 0;
                        text-shadow: none; }
-.losses .list { display: flex; flex-direction: column;
-                gap: clamp(1px, 0.6cqh, 4px); }
+/* two-up grid keeps all four loss items visible at any pane height */
+.losses .list { grid-area: list; align-self: center;
+                display: grid; grid-template-columns: 1fr 1fr;
+                column-gap: clamp(14px, 2.5cqw, 28px);
+                row-gap: clamp(2px, 0.8cqh, 6px); }
 .losses .item {
-  display: flex; align-items: center; gap: 10px;
-  font-size: clamp(10px, 12cqh, 14px); color: var(--text-dim);
+  display: flex; align-items: center; gap: 8px;
+  font-size: clamp(10px, 11cqh, 13px); color: var(--text-dim);
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.1;
 }
-.losses .item .name { color: var(--text); flex: 1; }
+.losses .item .name { color: var(--text); flex: 1;
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .losses .item .live {
   color: var(--loss); animation: livepulse 1.6s ease-in-out infinite;
   text-shadow: 0 0 8px var(--loss-glow);
@@ -511,16 +527,23 @@ html, body {
   0%, 100% { opacity: 0.35; } 50% { opacity: 1; }
 }
 
+/* lifetime pane — pack rows from the top with an even rhythm (was
+   space-between, which stretched the label away from the rows and pushed
+   the last row off the bottom edge). Hero number trimmed so 5 rows fit. */
+.bottom-strip .pane.totals { justify-content: flex-start; }
 .totals .stack { display: flex; flex-direction: column;
-                 gap: clamp(2px, 0.8cqh, 6px); }
+                 gap: clamp(3px, 1cqh, 8px); margin-top: clamp(2px, 0.6cqh, 6px); }
 .totals .row { display: flex; justify-content: space-between;
-               align-items: baseline; font-variant-numeric: tabular-nums;
-               line-height: 1.15; }
-.totals .row .k { color: var(--text-dim); font-size: clamp(10px, 11cqh, 13px); }
-.totals .row .v { color: var(--text); font-size: clamp(13px, 15cqh, 19px);
-                  font-weight: 400; }
+               align-items: baseline; gap: 12px;
+               font-variant-numeric: tabular-nums;
+               line-height: 1.1; }
+.totals .row .k { color: var(--text-dim); font-size: clamp(10px, 11cqh, 13px);
+                  white-space: nowrap; }
+.totals .row .v { color: var(--text); font-size: clamp(13px, 14cqh, 18px);
+                  font-weight: 400; text-align: right;
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .totals .row.hero .v {
-  font-size: clamp(18px, 24cqh, 32px); color: var(--battery);
+  font-size: clamp(16px, 20cqh, 26px); color: var(--battery);
   text-shadow: 0 0 16px var(--bat-glow);
 }
 
