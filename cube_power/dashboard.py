@@ -235,9 +235,11 @@ def _compute_losses(today_rows: list[dict]) -> dict:
 
 
 def _recommendation_for_group(group_units: list, car, sun_w: float,
-                              car_label: str) -> dict:
+                              car_label: str, cfg: Config) -> dict:
     """Plain-English advisory based on one group's state. Phase-2 hook
     for predictive logic per-group."""
+    floor = cfg.getf("soc_floor_pct", 33)
+    rehab = floor + cfg.getf("soc_rehab_band_pct", 7)
     avg_soc = None
     socs = [u.state.soc_pct for u in group_units if u.state.soc_pct is not None]
     if socs:
@@ -251,9 +253,9 @@ def _recommendation_for_group(group_units: list, car, sun_w: float,
         return {"level": "bad",
                 "text": f"Batteries near 100% — plug {car_label} in to capture incoming solar"}
 
-    if avg_soc and avg_soc <= 35:
+    if avg_soc and avg_soc <= floor:
         return {"level": "warn",
-                "text": f"Below floor (avg {avg_soc:.0f}%) — waiting for rehab at 40%"}
+                "text": f"Below floor (avg {avg_soc:.0f}%) — waiting for rehab at {rehab:.0f}%"}
 
     if car and car.plugged_in and not car.charging:
         return {"level": "info",
@@ -402,7 +404,7 @@ def _build_cell(coord, units, tesla, today_rows: list[dict],
     kwh_to_car = kwh_ac_out
     miles_to_car = round(kwh_to_car * _CHARGE_EFFICIENCY * _CAR_MI_PER_KWH)
 
-    recommendation = _recommendation_for_group(group_units, car, sun_w, car_label)
+    recommendation = _recommendation_for_group(group_units, car, sun_w, car_label, coord.cfg)
 
     # car payload for this cell
     car_dict = None
