@@ -94,6 +94,16 @@ class Coordinator:
             cfg.get("wall_state_path")
             or (Path(__file__).resolve().parent.parent / "wall_state.json"))
         self._car_on_wall: dict[str, bool] = self._load_wall_state()
+        # Per-VIN epoch of the last time a car was seen at/above "full" SoC.
+        # Drives the dashboard's weekly-100%-recharge watchdog: these LFP packs
+        # want a 100% charge ~weekly, so the user needs an alert when a car has
+        # gone too long without one. Persisted so "days since 100%" survives
+        # restarts.
+        self._last_full_path = Path(
+            cfg.get("charge_full_path")
+            or (Path(__file__).resolve().parent.parent / "charge_full.json"))
+        self._last_full_at: dict[str, float] = self._load_last_full()
+        self._last_full_save_ts: float = 0.0
         self._last_wall_kick: dict[str, float] = {}
         self._wall_probe_attempts: dict[str, int] = {}  # blind probes since reset
         # most-recent "bus live" sense per group (any unit on & not floored)
@@ -152,6 +162,23 @@ class Coordinator:
         except Exception as e:
             self.log.log("coordinator", "wall-state-save-error", error=str(e))
 
+    def _load_last_full(self) -> dict[str, float]:
+        try:
+            data = json.loads(self._last_full_path.read_text())
+            return {str(k): float(v) for k, v in data.items()}
+        except Exception:
+            return {}
+
+    def _save_last_full(self) -> None:
+        try:
+            self._last_full_path.write_text(json.dumps(self._last_full_at))
+        except Exception as e:
+            self.log.log("coordinator", "last-full-save-error", error=str(e))
+
+    def last_full_at(self, vin: str) -> float | None:
+        """Epoch of the last observed full charge for this VIN, or None."""
+        return self._last_full_at.get(vin)
+
     def stop(self) -> None:
         self._stop.set()
 
@@ -187,6 +214,26 @@ class Coordinator:
                 await self.tesla.refresh_all()
             except Exception as e:
                 self.log.log("coordinator", "tesla-refresh-error", error=str(e))
+
+        # 2b. weekly-100%-recharge watchdog: stamp each car the moment it's seen
+        #     at/above full SoC. Updated in memory every tick (so "days since
+        #     full" reads 0 while it sits at 100%); the disk write is persisted
+        #     immediately on a fresh full event and otherwise throttled so a car
+        #     parked at 100% doesn't churn the file.
+        if self.tesla is not None:
+            full = cfg.getf("car_full_soc_pct", 99)
+            fresh_event = False
+            any_full = False
+            for vin, c in self.tesla.cars.items():
+                soc = c.car_soc_pct
+                if soc is not None and soc >= full:
+                    any_full = True
+                    if now - self._last_full_at.get(vin, 0.0) > 3600:
+                        fresh_event = True
+                    self._last_full_at[vin] = now
+            if fresh_event or (any_full and now - self._last_full_save_ts > 600):
+                self._save_last_full()
+                self._last_full_save_ts = now
 
         # 3. update group->vin map from config (config hot-reloads)
         self._refresh_group_vins()

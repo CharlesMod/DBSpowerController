@@ -359,7 +359,18 @@ html, body {
                  font-variant-numeric: tabular-nums; }
 .node-name  { font-size: 24px; fill: #d7eef8; font-weight: 400; }
 
+/* ── weekly 100%-recharge watchdog (beside each car's %) ───────── */
+.car-fulltime  { font-size: 22px; fill: #7da3b8; font-weight: 600;
+                 font-variant-numeric: tabular-nums; }
+.car-fulllabel { font-size: 11px; fill: #44617a; letter-spacing: 1px; }
+.car-fulltime.soft   { fill: #ffd166; }
+.car-fulltime.medium { fill: #ff9a3c; }
+.car-fulltime.alert  { fill: #ff5e7a; animation: livepulse 1.6s ease-in-out infinite; }
+.car-fulllabel.alert { fill: #ff5e7a; }
+
 /* ── disconnected entities: grey out the icon and the charge ───── */
+.car-stack.disconnected .car-fulltime,
+.car-stack.disconnected .car-fulllabel { fill: #44617a; animation: none; }
 .car-stack.disconnected .car-body   { fill: #3a4a57; opacity: 0.45; filter: none; }
 .car-stack.disconnected .car-window { fill: #18222b; }
 .car-stack.disconnected .car-wheel  { fill: #18222b; stroke: #44617a; }
@@ -791,6 +802,8 @@ html, body {
                 style="fill:#b4f0ff; filter:drop-shadow(0 0 10px #4ad8e4); font-size: 46px;">—</text>
           <text class="node-value-sm" y="126" text-anchor="middle"
                 id="car-top-sub">—</text>
+          <text class="car-fulltime"  x="66" y="86"  id="car-top-full">—</text>
+          <text class="car-fulllabel" x="66" y="104" id="car-top-full-cap">since 100%</text>
         </g>
 
         <!-- ════ CAR — MERIDITH (bottom right) ════ -->
@@ -814,6 +827,8 @@ html, body {
                 style="fill:#b4f0ff; filter:drop-shadow(0 0 10px #4ad8e4); font-size: 46px;">—</text>
           <text class="node-value-sm" y="126" text-anchor="middle"
                 id="car-bot-sub">—</text>
+          <text class="car-fulltime"  x="66" y="86"  id="car-bot-full">—</text>
+          <text class="car-fulllabel" x="66" y="104" id="car-bot-full-cap">since 100%</text>
         </g>
 
         <defs>
@@ -856,8 +871,6 @@ html, body {
              <span class="v"><span id="life-mi">1,140</span> mi</span></div>
         <div class="row"><span class="k">Best day</span>
              <span class="v"><span id="best-day">11.2</span> kWh · Wed</span></div>
-        <div class="row"><span class="k">Solar streak</span>
-             <span class="v">🔥 <span id="streak">3</span> days</span></div>
         <div class="row"><span class="k">Last action</span>
              <span class="v" style="font-size:13px; color:var(--text-dim)"
                    id="last-action">tesla/start — Tessa</span></div>
@@ -1067,11 +1080,42 @@ function populateCarSlot(slot, cell) {
     subEl.textContent = "—";
   }
 
+  // Weekly 100%-recharge watchdog: time since the car was last seen full.
+  // These LFP packs want a 100% charge ~weekly; turns amber as it comes due
+  // and red+pulsing when overdue (charge on house power overnight).
+  const fullEl = $(`car-${slot}-full`);
+  const capEl  = $(`car-${slot}-full-cap`);
+  const lastFull = car?.last_full_at;
+  const softD  = state.car_full_soft_days   ?? 6;
+  const medD   = state.car_full_medium_days ?? 7;
+  const alertD = state.car_full_alert_days  ?? 8;
+  fullEl.classList.remove("soft", "medium", "alert");
+  capEl.classList.remove("alert");
+  if (lastFull) {
+    const days = (Date.now() / 1000 - lastFull) / 86400;
+    fullEl.textContent = fmtSince(days);
+    capEl.textContent = "since 100%";
+    if (days >= alertD)      { fullEl.classList.add("alert"); capEl.classList.add("alert"); }
+    else if (days >= medD)   { fullEl.classList.add("medium"); }
+    else if (days >= softD)  { fullEl.classList.add("soft"); }
+  } else {
+    fullEl.textContent = "—";
+    capEl.textContent = "no 100% yet";
+  }
+
   // Disconnected (BLE link down): grey the icon + charge so it reads as offline.
   const reachable = !(car && car.reachable === false);
   $(`car-${slot}`).classList.toggle("disconnected", !reachable);
   socEl.style.fill   = reachable ? "#b4f0ff" : "#5a6b78";
   socEl.style.filter = reachable ? "drop-shadow(0 0 10px #4ad8e4)" : "none";
+}
+
+/* Compact "time since" for the recharge watchdog: today / Nd / Nw. */
+function fmtSince(days) {
+  if (days < 1) return "today";
+  const d = Math.floor(days);
+  if (d < 14) return d + "d";
+  return Math.floor(d / 7) + "w";
 }
 
 /* ── decide which cars to render, where, and which edges to show ──
@@ -1299,7 +1343,6 @@ function renderBottomStrip() {
   $("life-saved").textContent = "$" + ((lt.kwh || 0) * 0.16).toFixed(2);  // $0.16/kWh
   $("life-mi").textContent  = fmt(lt.miles || 0);
   $("best-day").textContent = (lt.best_day_kwh || 0).toFixed(1);
-  $("streak").textContent   = lt.streak || 0;
 
   const la = state.last_action || {};
   const age = la.age_seconds;

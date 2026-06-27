@@ -26,6 +26,15 @@ soc_floor_pct: 20              # unit drops off the bus at/below this
 soc_hard_floor_pct: 17         # backstop, below the soft floor
 soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this (27%)
 
+# ── weekly 100% recharge watchdog ────────────────────────────────────
+# These LFP packs want a full 100% charge ~weekly. The dashboard shows time
+# since each car was last seen full and alerts when it's overdue (charge it
+# on house power overnight).
+car_full_soc_pct: 99           # SoC at/above which a car counts as "fully charged"
+car_full_soft_days: 6          # soft warn (yellow): weekly 100% recharge coming due
+car_full_medium_days: 7        # medium warn (orange)
+car_full_alert_days: 8         # alert (red + pulse) at 8d and beyond — charge tonight
+
 # ── car-count inference ──────────────────────────────────────────────
 car_sink_w: 1200               # assumed per-car fixed draw (1 car per bus_group)
 min_ac_dwell_s: 300            # min gap before turning a unit's AC back on

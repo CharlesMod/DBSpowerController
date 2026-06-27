@@ -423,6 +423,7 @@ def _build_cell(coord, units, tesla, today_rows: list[dict],
             "rssi": getattr(car, "rssi", None),
             "ble_connected": getattr(car, "ble_connected", None),
             "data_fresh": getattr(car, "data_fresh", True),
+            "last_full_at": coord.last_full_at(vin),
         }
 
     # group coordinator snapshot (plug edge, balance state, etc.)
@@ -458,7 +459,7 @@ def _build_cell(coord, units, tesla, today_rows: list[dict],
     }
 
 
-def _planned_cells_from_config(cfg: Config, tesla, present: set[str]) -> list[dict]:
+def _planned_cells_from_config(cfg: Config, tesla, present: set[str], coord) -> list[dict]:
     """Return cells for groups configured in cfg but not yet provisioned.
 
     If the car's BLE link is alive (tesla.cars[vin].reachable), surface the
@@ -495,6 +496,7 @@ def _planned_cells_from_config(cfg: Config, tesla, present: set[str]) -> list[di
                 "rssi": getattr(car, "rssi", None),
                 "ble_connected": getattr(car, "ble_connected", None),
                 "data_fresh": getattr(car, "data_fresh", True),
+                "last_full_at": coord.last_full_at(vin),
             }
             if car.reachable:
                 rec_text = f"{car_label} connected · awaiting bus hardware"
@@ -552,12 +554,25 @@ def build_dashboard(units, coord, cfg: Config, tesla, telemetry_path: Path,
                                          vin=v, forecast=forecast))
 
     # Plus placeholders for groups configured but not yet provisioned
-    cells.extend(_planned_cells_from_config(cfg, tesla, set(coord.groups.keys())))
+    cells.extend(_planned_cells_from_config(cfg, tesla, set(coord.groups.keys()), coord))
 
     losses = _compute_losses(today_rows)
     lifetime = _read_lifetime(telemetry_path)
     health = _health(units, tesla, cfg)
     last_action = _last_action(decisions_path)
+
+    # weekly-100% watchdog → top-level alerts, so an overdue car is surfaced
+    # even when its icon is hidden (unplugged cars aren't drawn).
+    alerts = [g.alert for g in coord.snapshot.groups.values()
+              if getattr(g, "alert", None)]
+    alert_days = cfg.getf("car_full_alert_days", 8)
+    for entry in cfg.get("tesla_vins", []) or []:
+        vin = entry.get("vin")
+        lf = coord.last_full_at(vin) if vin else None
+        if lf and (time.time() - lf) / 86400 >= alert_days:
+            nm = entry.get("name") or (vin or "")[-6:]
+            days = int((time.time() - lf) / 86400)
+            alerts.append(f"{nm}: {days}d since 100% — charge on house power tonight")
 
     # back-compat: keep the old single-car/single-group fields for any
     # client still consuming them. New UI should use `cells`.
@@ -570,6 +585,9 @@ def build_dashboard(units, coord, cfg: Config, tesla, telemetry_path: Path,
         "sunset_min": ss,
         "daylight_remaining_min": daylight_rem_min,
         "sun_now_w": round(sun_w, 0),
+        "car_full_soft_days": cfg.getf("car_full_soft_days", 6),
+        "car_full_medium_days": cfg.getf("car_full_medium_days", 7),
+        "car_full_alert_days": cfg.getf("car_full_alert_days", 8),
         "stored_kwh": round(sum((u.state.soc_pct or 0) / 100 * _PACK_KWH_PER_UNIT
                                  for u in units.values()), 2),
         "stored_capacity_kwh": round(_PACK_KWH_PER_UNIT * len(units), 2),
@@ -580,8 +598,7 @@ def build_dashboard(units, coord, cfg: Config, tesla, telemetry_path: Path,
         "car": (primary or {}).get("car"),
         "groups": {c["group_id"]: c.get("group_state") for c in cells if not c.get("placeholder")},
         # actionable alerts surfaced prominently for the ambient display
-        "alerts": [g.alert for g in coord.snapshot.groups.values()
-                   if getattr(g, "alert", None)],
+        "alerts": alerts,
         "today": (primary or {}).get("today", {
             "actual": [], "soc": [], "forecast": [],
             "kwh_today": 0, "kwh_expected_today": 0,

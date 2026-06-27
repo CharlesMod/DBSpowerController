@@ -9,6 +9,7 @@ tinytuya.json
 pvwatts_cache.json
 solar_forecast_cache.json
 wall_state.json
+charge_full.json
 *.bak
 *.egg-info/
 .pytest_cache/
