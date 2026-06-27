@@ -6,7 +6,7 @@ from pathlib import Path
 
 from aioesphomeapi import APIClient
 
-HOST = "192.168.86.22"
+HOST = "tesla-ble-07a398.local"
 SECRETS = Path("/home/cmod/esphome-tesla-ble/secrets.yaml")
 
 

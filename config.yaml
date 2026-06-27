@@ -12,10 +12,19 @@ poll_interval_s: 10            # Tuya full-status refresh cadence
 coordinator_tick_s: 15         # coordinator decision cadence
 state_stale_s: 60              # a unit with no fresh data past this is OFFLINE
 
+# ── Tuya IP auto-resolve ─────────────────────────────────────────────
+# DBS units have no router-independent name (no mDNS, mesh drops Tuya's
+# discovery broadcast). When a unit's cached IP in devices.json stops
+# answering, the poller sweeps the subnet for its Tuya device id, adopts
+# the new IP, and writes it back — self-healing after a router/DHCP change.
+tuya_resolve_after_fails: 3    # consecutive poll failures before a rescan
+tuya_resolve_interval_s: 120   # min seconds between rescans (throttle)
+# tuya_scan_subnets: ["192.168.68."]   # override; default = cube's own /24
+
 # ── SoC floor (the core constraint) ──────────────────────────────────
-soc_floor_pct: 33              # unit drops off the bus at/below this
-soc_hard_floor_pct: 30         # backstop, below the soft floor
-soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this (40%)
+soc_floor_pct: 20              # unit drops off the bus at/below this
+soc_hard_floor_pct: 17         # backstop, below the soft floor
+soc_rehab_band_pct: 7          # a floored unit rejoins only at floor + this (27%)
 
 # ── car-count inference ──────────────────────────────────────────────
 car_sink_w: 1200               # assumed per-car fixed draw (1 car per bus_group)
@@ -106,7 +115,7 @@ tesla_reconnect_max_throttle_s: 900 # backoff cap — an asleep car's radio is o
 tesla_vins:
   - vin: "5YJ3E1EA2PF433840"
     name: "Tessa"
-    beetle_host: "192.168.86.22"
+    beetle_host: "tesla-ble-07a398.local"
     bus_group: "a"
   # ── Meridith (second Tesla, on the Anker bus) ──────────────────
   # Beetle + Anker still pending; while beetle_host is unset the BLE
@@ -116,7 +125,7 @@ tesla_vins:
   - vin: "5YJ3E1EA1PF674661"
     name: "Meridith"
     bus_group: "a"                    # shares the DBS bus with Tessa until Anker
-    beetle_host: "192.168.86.22"      # shared with Tessa (dual-VIN firmware)
+    beetle_host: "tesla-ble-07a398.local"      # shared with Tessa (dual-VIN firmware)
 
 # ── NREL PVWatts (diagnostic only — never feeds control) ─────────────
 # nrel_api_key:                  # free key from https://developer.nrel.gov/signup/

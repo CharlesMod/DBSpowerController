@@ -21,6 +21,7 @@ import tinytuya
 
 from .bus import Bus
 from .config import Config
+from .tuya_resolve import persist_unit_ip, resolve_unit_ip
 from .types import DeviceState
 from .unit import Unit
 
@@ -122,8 +123,30 @@ def _read_status(unit: Unit) -> Any:
             pass
 
 
+async def _maybe_reresolve(unit: Unit, cfg: Config, bus: Bus,
+                           fails: int, last_resolve: float) -> float:
+    """After sustained poll failures, sweep the subnet for the unit's Tuya id and
+    adopt its new IP — self-heals a DHCP/IP change (e.g. after a router swap).
+    Returns the (possibly updated) last_resolve timestamp for throttling."""
+    if fails < int(cfg.getf("tuya_resolve_after_fails", 3)):
+        return last_resolve
+    now = time.time()
+    if now - last_resolve < cfg.getf("tuya_resolve_interval_s", 120):
+        return last_resolve
+    new_ip = await asyncio.to_thread(resolve_unit_ip, unit, cfg)
+    if new_ip and new_ip != unit.ip:
+        old_ip = unit.ip
+        unit.ip = new_ip
+        await asyncio.to_thread(persist_unit_ip, unit.unit_id, new_ip)
+        bus.publish({"type": "resolved", "unit": unit.unit_id,
+                     "old_ip": old_ip, "ip": new_ip})
+    return now
+
+
 async def poll_unit(unit: Unit, cfg: Config, bus: Bus, stop: asyncio.Event) -> None:
     backoff = 1.0
+    fails = 0
+    last_resolve = 0.0
     while not stop.is_set():
         ok = False
         try:
@@ -136,6 +159,7 @@ async def poll_unit(unit: Unit, cfg: Config, bus: Bus, stop: asyncio.Event) -> N
                              "state": asdict(state)})
                 ok = True
                 backoff = 1.0
+                fails = 0
             else:
                 raise RuntimeError(f"bad status response: {data}")
         except Exception as e:
@@ -145,6 +169,8 @@ async def poll_unit(unit: Unit, cfg: Config, bus: Bus, stop: asyncio.Event) -> N
             bus.publish({"type": "state", "unit": unit.unit_id,
                          "state": asdict(offline), "error": str(e)})
             backoff = min(backoff * 2, 60.0)
+            fails += 1
+            last_resolve = await _maybe_reresolve(unit, cfg, bus, fails, last_resolve)
 
         delay = cfg.getf("poll_interval_s", 10) if ok else backoff
         try:
